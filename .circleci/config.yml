@@ -71,6 +71,8 @@ jobs:
         root: .
         paths:
         - target
+        - common/target
+        - auth/target
 
   unit_test:
 
