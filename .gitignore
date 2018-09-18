@@ -1,0 +1,18 @@
+# Sbt
+target/
+.history
+
+# Idea IDE related
+.idea/
+.idea_modules/
+*.iml
+
+# Ensime
+.ensime
+.ensime_cache/
+
+# Mac OSX
+.DS_Store
+
+# Project specific
+test.log
