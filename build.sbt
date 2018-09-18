@@ -9,6 +9,9 @@ lazy val log4jVersion = "2.11.1"
 lazy val htt4sVersion = "0.18.17"
 lazy val commsDockerkitVersion = "1.8.2"
 
+
+lazy val IntegrationTest = config("it") extend Test
+
 lazy val noPublishSettings = Seq(
   publish := {},
   publishLocal := {},

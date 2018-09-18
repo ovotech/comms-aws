@@ -3,5 +3,5 @@ package common
 
 import org.scalatest.{Matchers, WordSpec}
 
-abstract class IntegrationSpec extends WordSpec with Matchers
+abstract class IntegrationSpec extends WordSpec with Matchers with IOFutures
 

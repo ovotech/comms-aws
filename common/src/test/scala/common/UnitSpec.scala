@@ -20,4 +20,8 @@ package common
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
-abstract class UnitSpec extends WordSpec with Matchers with PropertyChecks
+abstract class UnitSpec
+    extends WordSpec
+    with Matchers
+    with PropertyChecks
+    with IOFutures
