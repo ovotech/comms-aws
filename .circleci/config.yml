@@ -87,11 +87,42 @@ jobs:
         no_output_timeout: 20m
 
     - store_test_results:
-        path: target/test-reports
+        path: common/target/test-reports
+
+    - store_test_results:
+        path: auth/target/test-reports
+
 
     - store_artifacts:
         path: target/unit-test.log
         destination: logs/unit-test.log
+
+  integration_test:
+
+    <<: *defaults
+
+    steps:
+
+    - checkout
+
+    - *restore-cache
+
+    - attach_workspace:
+        at: .
+
+    - run:
+        command: sbt it:test
+        no_output_timeout: 20m
+
+    - store_test_results:
+        path: common/target/test-reports
+
+    - store_test_results:
+        path: auth/target/test-reports
+
+    - store_artifacts:
+        path: target/it-test.log
+        destination: logs/it-test.log
 
   tag:
 
