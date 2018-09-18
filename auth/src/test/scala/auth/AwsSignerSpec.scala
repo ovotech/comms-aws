@@ -20,7 +20,6 @@ package auth
 import common._
 import headers._
 import Credentials._
-
 import java.security.MessageDigest
 import java.time.{Instant, LocalDateTime, ZoneOffset}
 import java.time.temporal.ChronoUnit
@@ -67,7 +66,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       (for {
         req <- GET.apply(Uri.uri("https://example.com"))
         last <- req.body.compile.last
-      } yield last).unsafeRunSync() shouldBe None
+      } yield last).futureValue shouldBe None
     }
   }
 
@@ -98,7 +97,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
               r.headers.get(Date) shouldBe None
               r.headers.get(`X-Amz-Date`) shouldBe Some(expectedXAmzDate)
             }
-          }.unsafeRunSync()
+          }.futureValue
         }
       }
 
@@ -115,7 +114,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
               r.headers.get(Date) shouldBe None
               r.headers.get(`X-Amz-Date`) shouldBe Some(expectedXAmzDate)
             }
-          }.unsafeRunSync()
+          }.futureValue
         }
       }
     }
@@ -176,7 +175,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
             r.headers.get(`X-Amz-Security-Token`) shouldBe Some(
               expectedXAmzSecurityToken)
           }
-        }.unsafeRunSync()
+        }.futureValue
       }
     }
 
@@ -191,7 +190,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
           IO {
             r.headers.get(`X-Amz-Security-Token`) shouldBe None
           }
-        }.unsafeRunSync()
+        }.futureValue
       }
     }
   }
@@ -200,9 +199,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
     "Date header is not defined" when {
       "X-Amz-Date is not defined" should {
         "return a failed effect" in {
-          withSignRequest(GET(Uri.uri("http://example.com")))(_ => IO.unit).attempt
-            .unsafeRunSync() shouldBe a[Left[_, _]]
-
+          withSignRequest(GET(Uri.uri("http://example.com")))(_ => IO.unit).attempt.futureValue shouldBe a[
+            Left[_, _]]
         }
       }
     }
@@ -235,7 +233,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
             .get("Authorization".ci)
             .get
             .value shouldBe expectedAuthorizationValue)
-      }.unsafeRunSync()
+      }.futureValue
     }
 
     "sign a vanilla POST request correctly" in {
@@ -263,7 +261,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
             .get("Authorization".ci)
             .get
             .value shouldBe expectedAuthorizationValue)
-      }.unsafeRunSync()
+      }.futureValue
     }
 
     "sign a POST request with body" in {
@@ -296,7 +294,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
             .get("Authorization".ci)
             .get
             .value shouldBe expectedAuthorizationValue)
-      }.unsafeRunSync()
+      }.futureValue
     }
   }
 
