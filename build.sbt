@@ -76,6 +76,9 @@ lazy val root = (project in file("."))
       scalacOptions in(Compile, console) --= Seq("-Xlint", "-Ywarn-unused", "-Ywarn-unused-import"),
       scalacOptions in(Test, console) := (scalacOptions in(Compile, console)).value,
       testOptions in Test += Tests.Argument("-oDF"),
+      resolvers ++= Seq(
+        Resolver.bintrayRepo("ovotech", "maven")
+      ),
       libraryDependencies ++= Seq(
         "org.http4s" %% "http4s-core" % htt4sVersion,
         "org.http4s" %% "http4s-client" % htt4sVersion,
