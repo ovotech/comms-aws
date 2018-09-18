@@ -55,10 +55,13 @@ jobs:
         command: sbt headerCheck
 
     - run:
-        command: sbt scalafmt::test
+        command: sbt scalafmtCheck
 
     - run:
-        command: sbt test:scalafmt::test
+        command: sbt test:scalafmtCheck
+
+    - run:
+        command: sbt it:scalafmtCheck
 
     - run:
         command: sbt test:compile
