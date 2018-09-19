@@ -19,31 +19,27 @@ package auth
 
 import AwsSigner._
 import common._
-import headers.{`X-Amz-Content-SHA256`, `X-Amz-Date`, `X-Amz-Security-Token`}
+import headers.{`X-Amz-Content-SHA256`, `X-Amz-Security-Token`, `X-Amz-Date`}
 
 import scala.util.matching.Regex
-
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.time.{Clock, Instant, ZoneOffset}
+import java.time.{ZoneOffset, Clock, Instant}
 
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import javax.xml.bind.DatatypeConverter
-
 import cats.data.Kleisli
 import cats.effect.Sync
 import cats.implicits._
-
 import fs2.hash._
-
-import org.http4s.{HttpDate, Request}
+import org.http4s.{Request, HttpDate}
 import org.http4s.Header.Raw
 import org.http4s.client.{Client, DisposableResponse}
-import org.http4s.headers.{Authorization, Date, Host}
+import org.http4s.headers.{Date, Authorization, Host}
 import org.http4s.syntax.all._
 
 object AwsSigner {
@@ -51,7 +47,6 @@ object AwsSigner {
   val dateFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyyMMdd")
 
-  // 20150830T123600Z
   val dateTimeFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
 
@@ -114,21 +109,21 @@ object AwsSigner {
 
   }
 
+  def extractXAmzDateOrDate[F[_]](request: Request[F]): Option[Instant] = {
+    request.headers
+      .get(`X-Amz-Date`)
+      .map(_.date)
+      .orElse(request.headers.get(Date).map(_.date))
+      .map(_.toInstant)
+  }
+
   def fixRequest[F[_]](
       request: Request[F],
       credentials: Credentials,
       fallbackRequestDateTime: Instant)(implicit F: Sync[F]): F[Request[F]] = {
 
-    val requestDateTime: Instant = {
-      // TODO reverse it
-      val dateHeader = request.headers.get(Date)
-      val xAmzDateHeader = request.headers.get(`X-Amz-Date`)
-      dateHeader
-        .map(_.date)
-        .orElse(xAmzDateHeader.map(_.date))
-        .map(_.toInstant)
-        .getOrElse(fallbackRequestDateTime)
-    }
+    val requestDateTime: Instant =
+      extractXAmzDateOrDate(request).getOrElse(fallbackRequestDateTime)
 
     def addHostHeader(r: Request[F]): F[Request[F]] =
       if (r.headers.get(Host).isEmpty) {
@@ -192,7 +187,7 @@ object AwsSigner {
     val signingAlgorithm: String = "HmacSHA256"
     val digestAlgorithm: String = "SHA-256"
 
-    val hashedPayload: F[String] = {
+    val hashedPayloadF: F[String] = {
       val headerValue = request.headers
         .get(`X-Amz-Content-SHA256`)
         .map(_.hashedContent)
@@ -200,104 +195,106 @@ object AwsSigner {
       headerValue.fold(hashBody(request))(_.pure[F])
     }
 
-    hashedPayload.map { hashedBody =>
-      // TODO Fail the effect
-      val requestDateTime: Instant = request.headers
-        .get(`X-Amz-Date`)
-        .map(_.date)
-        .orElse(request.headers.get(Date).map(_.date))
-        .map(_.toInstant)
-        .getOrElse(throw new IllegalArgumentException)
+    val requestDateTimeF = extractXAmzDateOrDate(request)
+      .fold(
+        Sync[F].raiseError[Instant](new IllegalArgumentException(
+          "The given request does not have Date or X-Amz-Date header")))(
+        _.pure[F])
 
-      val formattedDateTime = requestDateTime
-        .atOffset(ZoneOffset.UTC)
-        .format(AwsSigner.dateTimeFormatter)
+    (hashedPayloadF, requestDateTimeF).mapN {
+      (hashedPayload, requestDateTime) =>
+        val formattedDateTime = requestDateTime
+          .atOffset(ZoneOffset.UTC)
+          .format(AwsSigner.dateTimeFormatter)
 
-      val formattedDate =
-        requestDateTime.atOffset(ZoneOffset.UTC).format(AwsSigner.dateFormatter)
+        val formattedDate =
+          requestDateTime
+            .atOffset(ZoneOffset.UTC)
+            .format(AwsSigner.dateFormatter)
 
-      val scope =
-        s"$formattedDate/${region.value}/${service.value}/aws4_request"
+        val scope =
+          s"$formattedDate/${region.value}/${service.value}/aws4_request"
 
-      val (canonicalHeaders, signedHeaders) = {
+        val (canonicalHeaders, signedHeaders) = {
 
-        val grouped = request.headers.groupBy(_.name)
-        val combined = grouped.mapValues(_.map(h =>
-          MultipleSpaceRegex.replaceAllIn(h.value, " ").trim).mkString(","))
+          val grouped = request.headers.groupBy(_.name)
+          val combined = grouped.mapValues(_.map(h =>
+            MultipleSpaceRegex.replaceAllIn(h.value, " ").trim).mkString(","))
 
-        val canonical = combined.toSeq
-          .sortBy(_._1)
-          .map { case (k, v) => s"${k.value.toLowerCase}:$v\n" }
-          .mkString("")
+          val canonical = combined.toSeq
+            .sortBy(_._1)
+            .map { case (k, v) => s"${k.value.toLowerCase}:$v\n" }
+            .mkString("")
 
-        val signed: String =
-          request.headers
-            .map(_.name.value.toLowerCase)
-            .toSeq
-            .distinct
-            .sorted
-            .mkString(";")
+          val signed: String =
+            request.headers
+              .map(_.name.value.toLowerCase)
+              .toSeq
+              .distinct
+              .sorted
+              .mkString(";")
 
-        canonical -> signed
-      }
-
-      val canonicalRequest = {
-
-        val method = request.method.name.toUpperCase
-
-        val canonicalUri = {
-          val absolutePath =
-            if (request.uri.path.startsWith("/")) request.uri.path
-            else "/" ++ request.uri.path
-
-          // you do not normalize URI paths for requests to Amazon S3
-          val normalizedPath = if (service != Service.S3) {
-            DoubleSlashRegex.replaceAllIn(absolutePath, "/")
-          } else {
-            absolutePath
-          }
-
-          /* FIXME: This should split the path segments and encode each rather than
-           *        decode the slashes afterward
-           */
-          EncodedSlashRegex.replaceAllIn(uriEncode(normalizedPath), "/")
+          canonical -> signed
         }
 
-        val canonicalQueryString: String =
-          request.uri.query
-            .sortBy(_._1)
-            .map {
-              case (a, b) => s"${uriEncode(a)}=${uriEncode(b.getOrElse(""))}"
+        val canonicalRequest = {
+
+          val method = request.method.name.toUpperCase
+
+          val canonicalUri = {
+            val absolutePath =
+              if (request.uri.path.startsWith("/")) request.uri.path
+              else "/" ++ request.uri.path
+
+            // you do not normalize URI paths for requests to Amazon S3
+            val normalizedPath = if (service != Service.S3) {
+              DoubleSlashRegex.replaceAllIn(absolutePath, "/")
+            } else {
+              absolutePath
             }
-            .mkString("&")
 
-        s"$method\n$canonicalUri\n$canonicalQueryString\n$canonicalHeaders\n$signedHeaders\n$hashedBody"
-      }
+            /* FIXME: This should split the path segments and encode each rather than
+             *        decode the slashes afterward
+             */
+            EncodedSlashRegex.replaceAllIn(uriEncode(normalizedPath), "/")
+          }
 
-      val stringToSign = {
-        val digest = MessageDigest.getInstance(digestAlgorithm)
-        val hashedRequest = encodeHex(digest.digest(canonicalRequest.getBytes))
+          val canonicalQueryString: String =
+            request.uri.query
+              .sortBy(_._1)
+              .map {
+                case (a, b) => s"${uriEncode(a)}=${uriEncode(b.getOrElse(""))}"
+              }
+              .mkString("&")
 
-        s"$algorithm\n$formattedDateTime\n$scope\n$hashedRequest"
-      }
+          s"$method\n$canonicalUri\n$canonicalQueryString\n$canonicalHeaders\n$signedHeaders\n$hashedPayload"
+        }
 
-      val signingKey: SecretKeySpec =
-        key(formattedDate, credentials, region, service, signingAlgorithm)
+        val stringToSign = {
+          val digest = MessageDigest.getInstance(digestAlgorithm)
+          val hashedRequest =
+            encodeHex(digest.digest(canonicalRequest.getBytes))
 
-      val signature: String = encodeHex(
-        signWithKey(signingKey, stringToSign.getBytes, signingAlgorithm))
+          s"$algorithm\n$formattedDateTime\n$scope\n$hashedRequest"
+        }
 
-      val authorizationHeader = {
+        val signingKey: SecretKeySpec =
+          key(formattedDate, credentials, region, service, signingAlgorithm)
 
-        Authorization
+        val signature: String = encodeHex(
+          signWithKey(signingKey, stringToSign.getBytes, signingAlgorithm))
 
-        val authorizationHeaderValue =
-          s"$algorithm Credential=${credentials.accessKeyId.value}/$scope, SignedHeaders=$signedHeaders, Signature=$signature"
+        val authorizationHeader = {
 
-        Raw("Authorization".ci, authorizationHeaderValue)
-      }
+          Authorization
 
-      request.putHeaders(authorizationHeader)
+          val authorizationHeaderValue =
+            s"$algorithm Credential=${credentials.accessKeyId.value}/$scope, SignedHeaders=$signedHeaders, Signature=$signature"
+
+          Raw("Authorization".ci, authorizationHeaderValue)
+        }
+
+        request.putHeaders(authorizationHeader)
 
     }
 
