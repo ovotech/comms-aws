@@ -3,14 +3,18 @@ package s3
 
 import auth.AwsSigner
 import common._
-import org.http4s.{Uri, client, Method}
+import org.http4s.{Uri, client, EntityDecoder, Method}
 import client.{Client, DisposableResponse}
 import client.dsl.Http4sClientDsl
 import Method._
 import cats.effect.Sync
 import cats.implicits._
+import com.ovoenergy.comms.aws.common.model.RequestId
 import model.{Key, Etag, Bucket, _}
 import org.http4s.headers.ETag
+import org.http4s.scalaxml._
+
+import scala.xml.Elem
 
 class S3[F[_]: Sync](client: Client[F], credentialsProvider: CredentialsProvider[F], region: Region) extends Http4sClientDsl[F] {
 
@@ -29,7 +33,18 @@ class S3[F[_]: Sync](client: Client[F], credentialsProvider: CredentialsProvider
     endpoint / bucket.name / key.value
   }
 
-  def getObject(bucket: Bucket, key: Key): F[Object[F]] = {
+  private implicit val errorEntityDecoder: EntityDecoder[F, Error] = EntityDecoder[F, Elem].map { elem =>
+
+    // FIXME Handle errors: All of this could be empty and returning ""
+    val code = Error.Code((elem \ "Code").text)
+    val message = (elem \ "Message").text
+    val requestId = RequestId((elem \  "RequestId").text)
+    val key = elem.child.find(_.label == "Key").map(node => Key(node.text))
+
+    Error(code, requestId, message, key)
+  }
+
+  def getObject(bucket: Bucket, key: Key): F[Either[Error, Object[F]]] = {
 
     def parseObject(dr: DisposableResponse[F]): F[Object[F]] = {
       val response = dr.response
@@ -47,8 +62,12 @@ class S3[F[_]: Sync](client: Client[F], credentialsProvider: CredentialsProvider
     for {
       request <- GET(uri(bucket, key))
       response <- signedClient.open.apply(request)
-      obj <- parseObject(response)
-    } yield obj
+      result <- if(response.response.status.isSuccess) {
+        parseObject(response).map(_.asRight[Error])
+      } else {
+        response(_.as[Error]).map(_.asLeft[Object[F]])
+      }
+    } yield result
 
   }
 

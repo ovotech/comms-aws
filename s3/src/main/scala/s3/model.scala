@@ -20,7 +20,7 @@ object model {
     */
   case class Object[F[_]](eTag: Etag, content: Stream[F, Byte], dispose: F[Unit])
 
-  case class Error(code: Error.Code, requestId: RequestId, resource: Uri, message: String )
+  case class Error(code: Error.Code, requestId: RequestId, message: String, key: Option[Key] = None)
 
   object Error {
 

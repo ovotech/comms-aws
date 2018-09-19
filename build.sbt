@@ -6,8 +6,9 @@ lazy val scalatestVersion = "3.0.5"
 lazy val scalacheckVersion = "1.13.5"
 lazy val slf4jVersion = "1.7.25"
 lazy val log4jVersion = "2.11.1"
-lazy val htt4sVersion = "0.18.17"
+lazy val http4sVersion = "0.18.18"
 lazy val commsDockerkitVersion = "1.8.2"
+lazy val scalaXmlVersion = "1.1.0"
 
 
 lazy val IntegrationTest = config("it") extend Test
@@ -38,7 +39,7 @@ lazy val releaseOptions = Seq(
 )
 
 lazy val root = (project in file("."))
-  .aggregate(common, auth)
+  .aggregate(common, auth, s3)
   .configs(IntegrationTest)
   .settings(releaseOptions)
   .settings(
@@ -88,8 +89,8 @@ lazy val root = (project in file("."))
         Resolver.bintrayRepo("ovotech", "maven")
       ),
       libraryDependencies ++= Seq(
-        "org.http4s" %% "http4s-core" % htt4sVersion,
-        "org.http4s" %% "http4s-client" % htt4sVersion,
+        "org.http4s" %% "http4s-core" % http4sVersion,
+        "org.http4s" %% "http4s-client" % http4sVersion,
         "co.fs2" %% "fs2-core" % fs2Version,
         "co.fs2" %% "fs2-io" % fs2Version,
         "org.slf4j" % "slf4j-api" % slf4jVersion,
@@ -100,7 +101,7 @@ lazy val root = (project in file("."))
         "org.apache.logging.log4j" % "log4j-api" % log4jVersion,
         "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4jVersion,
         "com.ovoenergy" %% "comms-docker-testkit" % commsDockerkitVersion,
-        "org.http4s" %% "http4s-blaze-client" % htt4sVersion,
+        "org.http4s" %% "http4s-blaze-client" % http4sVersion,
       ).map(_ % s"$Test,$IntegrationTest"),
       scalafmtOnCompile := true,
     )),
@@ -138,4 +139,19 @@ lazy val auth = (project in file("auth"))
     )
   )
 
-
+lazy val s3 = (project in file("s3"))
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest", auth)
+  .configs(IntegrationTest)
+  .settings(
+    name := "comms-aws-s3",
+  )
+  .settings(inConfig(IntegrationTest)(Defaults.itSettings))
+  .settings(automateHeaderSettings(IntegrationTest))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-scala-xml" % http4sVersion,
+      "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion,
+      "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion % s"$Test,$IntegrationTest",
+    )
+  )
