@@ -2,9 +2,7 @@
 <Configuration status="WARN">
     <Appenders>
         <File name="File" fileName="target/unit-test.log">
-            <PatternLayout>
-                <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
-            </PatternLayout>
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
         </File>
     </Appenders>
     <Loggers>
