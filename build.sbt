@@ -22,6 +22,7 @@ lazy val releaseOptions = Seq(
   releaseEarlyWith := BintrayPublisher,
   releaseEarlyEnableSyncToMaven := false,
   releaseEarlyNoGpg := true,
+//  releaseEarlyEnableSyncToMaven := false,
   bintrayOrganization := Some("ovotech"),
   bintrayRepository := "maven",
   bintrayPackageLabels := Seq(
@@ -39,6 +40,7 @@ lazy val releaseOptions = Seq(
 lazy val root = (project in file("."))
   .aggregate(common, auth)
   .configs(IntegrationTest)
+  .settings(releaseOptions)
   .settings(
     name := "comms-aws",
     inThisBuild(List(
@@ -101,6 +103,7 @@ lazy val root = (project in file("."))
 lazy val common = (project in file("common"))
   .enablePlugins(AutomateHeaderPlugin)
   .configs(IntegrationTest)
+  .settings(releaseOptions)
   .settings(
     name := "comms-aws-common",
   )
@@ -117,6 +120,7 @@ lazy val auth = (project in file("auth"))
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest")
   .configs(IntegrationTest)
+  .settings(releaseOptions)
   .settings(
     name := "comms-aws-auth",
   )
