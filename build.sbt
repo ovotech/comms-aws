@@ -22,7 +22,7 @@ lazy val releaseOptions = Seq(
   releaseEarlyWith := BintrayPublisher,
   releaseEarlyEnableSyncToMaven := false,
   releaseEarlyNoGpg := true,
-//  releaseEarlyEnableSyncToMaven := false,
+  //  releaseEarlyEnableSyncToMaven := false,
   bintrayOrganization := Some("ovotech"),
   bintrayRepository := "maven",
   bintrayPackageLabels := Seq(
@@ -47,6 +47,12 @@ lazy val root = (project in file("."))
       organization := "com.ovoenergy.comms",
       organizationName := "OVO Energy",
       organizationHomepage := Some(url("https://ovoenergy.com")),
+      developers := List(
+        Developer("filosganga", "Filippo De Luca", "filippo.deluca@ovoenergy.com", url("https://github.com/filosganga")),
+        Developer("laurence-bird", "Laurence Bird", "laurence.bird@ovoenergy.com", url("https://github.com/laurence-bird")),
+        Developer("SystemFw", "Fabio Labella", "fabio.labella@ovoenergy.com", url("https://github.com/SystemFw")),
+        Developer("ZsoltBalvanyos", "Zsolt Balvanyos", "zsolt.balvanyos@ovoenergy.com", url("https://github.com/ZsoltBalvanyos")),
+      ),
       startYear := Some(2018),
       licenses := Seq("Apache-2.0" -> url("https://opensource.org/licenses/apache-2.0")),
       scmInfo := Some(
