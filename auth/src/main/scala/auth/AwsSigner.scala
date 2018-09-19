@@ -120,6 +120,7 @@ object AwsSigner {
       fallbackRequestDateTime: Instant)(implicit F: Sync[F]): F[Request[F]] = {
 
     val requestDateTime: Instant = {
+      // TODO reverse it
       val dateHeader = request.headers.get(Date)
       val xAmzDateHeader = request.headers.get(`X-Amz-Date`)
       dateHeader

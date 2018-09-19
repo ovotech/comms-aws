@@ -20,13 +20,16 @@ package common
 import Credentials._
 import cats.effect.Sync
 import cats.implicits._
-import com.amazonaws.auth.{AWSCredentialsProvider, AWSSessionCredentials}
+import com.amazonaws.auth.{AWSSessionCredentials, AWSCredentialsProvider, DefaultAWSCredentialsProviderChain}
 
 trait CredentialsProvider[F[_]] {
   def get: F[Credentials]
 }
 
 object CredentialsProvider {
+
+  def default[F[_]: Sync]: CredentialsProvider[F] =
+    fromAwsCredentialProvider[F](new DefaultAWSCredentialsProviderChain)
 
   // TODO refresh creds automagically
   def fromAwsCredentialProvider[F[_]](

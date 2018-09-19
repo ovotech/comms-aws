@@ -15,7 +15,7 @@ import org.http4s.client.middleware.{RequestLogger, ResponseLogger}
 
 import scala.concurrent.duration._
 
-class AwsSignerSpec extends IntegrationSpec with Http4sClientDsl[IO] {
+class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
 
   "AwsSigner" should {
     "sign request valid for S3" in {
