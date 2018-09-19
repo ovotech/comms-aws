@@ -20,7 +20,11 @@ package common
 import Credentials._
 import cats.effect.Sync
 import cats.implicits._
-import com.amazonaws.auth.{AWSSessionCredentials, AWSCredentialsProvider, DefaultAWSCredentialsProviderChain}
+import com.amazonaws.auth.{
+  AWSSessionCredentials,
+  AWSCredentialsProvider,
+  DefaultAWSCredentialsProviderChain
+}
 
 trait CredentialsProvider[F[_]] {
   def get: F[Credentials]
