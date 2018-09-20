@@ -19,23 +19,33 @@ package s3
 
 import common.model._
 
-import cats.syntax.option._
-import fs2.Stream
-import org.http4s.Uri
+import cats.implicits._
+import cats.effect.Async
+
+import java.nio.file.{StandardOpenOption, Files, Path}
+import java.util.concurrent.{Executors, ThreadFactory}
+
+import fs2.{Stream, Chunk}, fs2.io._
+import org.http4s.{MediaType, Charset}
+
+import scala.concurrent.ExecutionContext
 
 object model {
+
+  case class ObjectSummary(eTag: Etag, metadata: Map[String, String])
 
   /**
     * The S3 Object. Running the content stream or calling dispose will dispose
     * the underling connection
     *
-    * @param eTag    The S3 ETag
-    * @param content The Stream[F, Byte] on the object content.
-    * @param dispose This will cause the underlying HTTP response to be closed
+    * @param eTag     The S3 ETag
+    * @param content  The Stream[F, Byte] on the object content.
+    * @param metadata The metadata stored in the S3 object.
+    * @param dispose  This will cause the underlying HTTP response to be closed
     * @tparam F The effect
     */
   case class Object[F[_]](
-      eTag: Etag,
+      summary: ObjectSummary,
       content: Stream[F, Byte],
       dispose: F[Unit])
 
@@ -102,5 +112,68 @@ object model {
   case class Key(value: String)
 
   case class Etag(value: String)
+
+  case class ObjectPutted(etag: Etag)
+
+  // TODO Use something like Byte/KiloByte/Mb/Gb for the length
+  case class ObjectContent[F[_]](
+      data: Stream[F, Byte],
+      contentLength: Long,
+      chunked: Boolean,
+      mediaType: MediaType = MediaType.`application/octet-stream`,
+      charset: Option[Charset] = None)
+
+  object ObjectContent {
+
+    val MaxDataLength: Long = Int.MaxValue.toLong
+    val ChunkSize: Int = 64 * 1024
+
+    private val DefaultBlockingEc: ExecutionContext =
+      ExecutionContext.fromExecutorService(
+        Executors.newFixedThreadPool(16, new ThreadFactory {
+          override def newThread(r: Runnable): Thread = {
+            val t = Executors.defaultThreadFactory().newThread(r)
+            t.setDaemon(true)
+            t
+          }
+        }))
+
+    def fromByteArray[F[_]](
+        data: Array[Byte],
+        mediaType: MediaType = MediaType.`application/octet-stream`,
+        charset: Option[Charset] = None): ObjectContent[F] =
+      ObjectContent[F](
+        data = Stream.chunk(Chunk.boxed[Byte](data)).covary[F],
+        contentLength = data.length.toLong,
+        mediaType = mediaType,
+        charset = charset,
+        chunked = false
+      )
+
+    def fromPath[F[_]](
+        path: Path,
+        blockingEc: ExecutionContext = DefaultBlockingEc)(
+        implicit F: Async[F],
+        ec: ExecutionContext): F[ObjectContent[F]] =
+      for {
+        _ <- Async.shift[F](blockingEc)
+        contentLength <- F.delay(Files.size(path))
+        _ <- if (contentLength > MaxDataLength) {
+          F.raiseError[Long](
+            new IllegalArgumentException(
+              "The file must be smaller than MaxDataLength bytes"))
+        } else {
+          contentLength.pure[F]
+        }
+        _ <- Async.shift[F](ec)
+      } yield
+        ObjectContent(
+          readInputStream[F](
+            F.delay(Files.newInputStream(path, StandardOpenOption.READ)),
+            ChunkSize),
+          contentLength,
+          chunked = contentLength > ChunkSize)
+
+  }
 
 }

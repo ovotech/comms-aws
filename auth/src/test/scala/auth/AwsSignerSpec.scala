@@ -19,7 +19,9 @@ package auth
 
 import common._
 import headers._
+import model._
 import Credentials._
+
 import java.security.MessageDigest
 import java.time.{Instant, LocalDateTime, ZoneOffset}
 import java.time.temporal.ChronoUnit

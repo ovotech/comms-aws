@@ -2,6 +2,7 @@ package com.ovoenergy.comms.aws
 package auth
 
 import common._
+import common.model._
 
 import cats.effect.IO
 import org.http4s.client.Client

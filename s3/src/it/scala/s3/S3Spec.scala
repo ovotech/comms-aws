@@ -1,22 +1,37 @@
 package com.ovoenergy.comms.aws
 package s3
 
+import model._
+import common.{IntegrationSpec, CredentialsProvider}
+import common.model._
+
 import java.nio.file.Files
+import java.util.UUID
 
 import cats.implicits._
 import cats.effect.IO
-import model._
-import common.{IntegrationSpec, Region, CredentialsProvider}
-import fs2.Stream.ToEffect
-import org.http4s.client.Client
-import org.http4s.client.blaze.Http1Client
+
 import fs2._
-import org.http4s.client.middleware.{ResponseLogger, RequestLogger}
 import fs2.io._
+import fs2.Stream.ToEffect
+
+import org.http4s.client._
+import blaze.Http1Client
+import middleware.{ResponseLogger, RequestLogger}
 
 import scala.concurrent.duration._
 
 class S3Spec extends IntegrationSpec {
+
+  val existingKey = Key("more.pdf")
+  val notExistingKey = Key("less.pdf")
+
+  val existingBucket = Bucket("ovo-comms-test")
+  val nonExistingBucket = Bucket("ovo-comms-non-existing-bucket")
+
+  val morePdf = IO(ClassLoader.getSystemClassLoader.getResourceAsStream("more.pdf"))
+  val moreSize = IO(ClassLoader.getSystemClassLoader.getResource("more.pdf").openConnection().getContentLength)
+  val randomKey = IO(Key(UUID.randomUUID().toString))
 
   implicit class RichToEffectIO[O](te: ToEffect[IO, O]) {
     def lastOrRethrow: IO[O] =
@@ -28,27 +43,100 @@ class S3Spec extends IntegrationSpec {
 
   implicit val patience: PatienceConfig = PatienceConfig(scaled(5.seconds), 500.millis)
 
+  "headObject" when {
+
+    "the bucked exists" when {
+      "the key does exist" should {
+        val key = existingKey
+        "return the object eTag" in withS3 { s3 =>
+          s3.headObject(existingBucket, key).futureValue.right.map { os =>
+            os.eTag shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f")
+          }
+        }
+
+        "return the object metadata" in withS3 { s3 =>
+          s3.headObject(existingBucket, key).futureValue.right.map { os =>
+            os.metadata shouldBe Map("is-test"->"true")
+          }
+        }
+      }
+
+      "the key does not exist" should {
+
+        "return a Left" in withS3 { s3 =>
+          s3.headObject(existingBucket, notExistingKey).futureValue shouldBe a[Left[_,_]]
+        }
+
+        "return NoSuchKey error code" in withS3 { s3 =>
+          s3.headObject(existingBucket, notExistingKey).futureValue.left.map { error =>
+            error.code shouldBe Error.Code("NoSuchKey")
+          }
+        }
+
+        "return the given key as resource" in withS3 { s3 =>
+          s3.headObject(existingBucket, notExistingKey).futureValue.left.map { error =>
+            error.key shouldBe notExistingKey.some
+          }
+        }
+
+      }
+    }
+
+    "the bucked does not exist" should {
+
+      "return a Left" in withS3 { s3 =>
+        s3.headObject(nonExistingBucket, existingKey).futureValue shouldBe a[Left[_,_]]
+      }
+
+
+      "return NoSuchBucket error code" in withS3 { s3 =>
+        s3.headObject(nonExistingBucket, existingKey).futureValue.left.map { error =>
+          error.code shouldBe Error.Code("NoSuchBucket")
+        }
+      }
+
+      "return the given bucket" in withS3 { s3 =>
+        s3.headObject(nonExistingBucket, existingKey).futureValue.left.map { error =>
+          error.bucketName shouldBe nonExistingBucket.some
+        }
+      }
+
+    }
+
+  }
+
   "getObject" when {
 
     "the bucked exists" when {
-      val bucket = Bucket("ovo-comms-test")
       "the key does exist" should {
-        val key = Key("more.pdf")
+        val key = existingKey
         "return the object eTag" in withS3 { s3 =>
-          Stream.bracket(s3.getObject(bucket, key))(
+          Stream.bracket(s3.getObject(existingBucket, key))(
             objOrError => objOrError
               .fold(e => Stream.raiseError[Object[IO]](new RuntimeException(e.message)),
                 ok => Stream.emit(ok)
               ),
             obj => obj.fold(_ => IO.unit, _.dispose))
             .map { obj =>
-              obj.eTag shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f")
+              obj.summary.eTag shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f")
+            }.compile.lastOrRethrow.futureValue
+        }
+
+        "return the object metadata" in withS3 { s3 =>
+          Stream.bracket(s3.getObject(existingBucket, key))(
+            objOrError => objOrError
+              .fold(e => Stream.raiseError[Object[IO]](new RuntimeException(e.message)),
+                ok => Stream.emit(ok)
+              ),
+            obj => obj.fold(_ => IO.unit, _.dispose))
+            .map { obj =>
+              obj.summary.metadata shouldBe Map("is-test"->"true")
             }.compile.lastOrRethrow.futureValue
         }
 
         "return the object that can be consumed to a file" in withS3 { s3 =>
 
-          Stream.bracket(s3.getObject(bucket, key))(
+          Stream.bracket(s3.getObject(existingBucket, key))(
             objOrError => objOrError
               .fold(e => Stream.raiseError[Object[IO]](new RuntimeException(e.message)),
                 ok => Stream.emit(ok)
@@ -65,7 +153,7 @@ class S3Spec extends IntegrationSpec {
 
         "return the object that after disposed cannot be consumed" in withS3 { s3 =>
 
-          Stream.bracket(s3.getObject(bucket, key))(
+          Stream.bracket(s3.getObject(existingBucket, key))(
             objOrError => objOrError
               .fold(e => Stream.raiseError[Object[IO]](new RuntimeException(e.message)),
                 ok => Stream.emit(ok)
@@ -78,9 +166,10 @@ class S3Spec extends IntegrationSpec {
       }
 
       "the key does not exist" should {
+
         "return a Left" in withS3 { s3 =>
           Stream.bracket(
-            s3.getObject(Bucket("ovo-comms-test"), Key("less.pdf")))(
+            s3.getObject(existingBucket, notExistingKey))(
             objOrError => Stream.emit(objOrError),
             objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
           ).map { objOrError =>
@@ -90,7 +179,7 @@ class S3Spec extends IntegrationSpec {
 
         "return NoSuchKey error code" in withS3 { s3 =>
           Stream.bracket(
-            s3.getObject(Bucket("ovo-comms-test"), Key("less.pdf")))(
+            s3.getObject(existingBucket, notExistingKey))(
             objOrError => Stream.emit(objOrError),
             objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
           ).map { objOrError =>
@@ -101,14 +190,13 @@ class S3Spec extends IntegrationSpec {
         }
 
         "return the given key as resource" in withS3 { s3 =>
-          val key = Key("less.pdf")
           Stream.bracket(
-            s3.getObject(Bucket("ovo-comms-test"), key))(
+            s3.getObject(existingBucket, notExistingKey))(
             objOrError => Stream.emit(objOrError),
             objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
           ).map { objOrError =>
             objOrError.left.map { error =>
-              error.key shouldBe key.some
+              error.key shouldBe notExistingKey.some
             }
           }.compile.lastOrRethrow.futureValue
         }
@@ -117,11 +205,10 @@ class S3Spec extends IntegrationSpec {
     }
 
     "the bucked does not exist" should {
-      val bucket = Bucket("ovo-comms-non-existing-bucket")
 
       "return a Left" in withS3 { s3 =>
         Stream.bracket(
-          s3.getObject(bucket, Key("less.pdf")))(
+          s3.getObject(nonExistingBucket, notExistingKey))(
           objOrError => Stream.emit(objOrError),
           objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
         ).map { objOrError =>
@@ -132,7 +219,7 @@ class S3Spec extends IntegrationSpec {
 
       "return NoSuchBucket error code" in withS3 { s3 =>
         Stream.bracket(
-          s3.getObject(bucket, Key("less.pdf")))(
+          s3.getObject(nonExistingBucket, notExistingKey))(
           objOrError => Stream.emit(objOrError),
           objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
         ).map { objOrError =>
@@ -145,12 +232,12 @@ class S3Spec extends IntegrationSpec {
 
       "return the given bucket" in withS3 { s3 =>
         Stream.bracket(
-          s3.getObject(bucket, Key("less.pdf")))(
+          s3.getObject(nonExistingBucket, notExistingKey))(
           objOrError => Stream.emit(objOrError),
           objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
         ).map { objOrError =>
           objOrError.left.map { error =>
-            error.bucketName shouldBe bucket.some
+            error.bucketName shouldBe nonExistingBucket.some
           }
 
         }.compile.lastOrRethrow.futureValue
@@ -158,6 +245,52 @@ class S3Spec extends IntegrationSpec {
 
     }
 
+  }
+
+  "putObject" when {
+    "the bucked exists" should {
+      "upload the object content" in withS3 { s3 =>
+
+        val contentIo: IO[ObjectContent[IO]] = moreSize.map { size =>
+          ObjectContent(
+            readInputStream(morePdf, chunkSize = 64 * 1024),
+            size,
+            chunked = true
+          )
+        }
+
+        (for {
+          key <- randomKey
+          content <- contentIo
+          result <- s3.putObject(existingBucket, key, content)
+        } yield result).futureValue shouldBe a[Right[_,_]]
+
+      }
+
+      "upload the object content with custom metadata" in withS3 { s3 =>
+
+        val expectedMetadata = Map("test"->"yes")
+
+        val contentIo: IO[ObjectContent[IO]] = moreSize.map { size =>
+          ObjectContent(
+            readInputStream(morePdf, chunkSize = 64 * 1024),
+            size,
+            chunked = true
+          )
+        }
+
+        (for {
+          key <- randomKey
+          content <- contentIo
+          _ <- s3.putObject(existingBucket, key, content, expectedMetadata)
+          summary <- s3.headObject(existingBucket, key)
+        } yield summary).futureValue.right.map { summary =>
+          summary.metadata shouldBe expectedMetadata
+
+        }
+      }
+
+    }
   }
 
 

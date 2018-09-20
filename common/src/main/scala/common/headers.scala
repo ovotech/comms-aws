@@ -17,7 +17,7 @@
 package com.ovoenergy.comms.aws
 package common
 
-import Credentials._
+import model.Credentials._
 
 import java.time._
 
