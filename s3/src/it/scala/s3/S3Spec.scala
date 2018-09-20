@@ -29,8 +29,8 @@ class S3Spec extends IntegrationSpec {
   val existingBucket = Bucket("ovo-comms-test")
   val nonExistingBucket = Bucket("ovo-comms-non-existing-bucket")
 
-  val morePdf = IO(ClassLoader.getSystemClassLoader.getResourceAsStream("more.pdf"))
-  val moreSize = IO(ClassLoader.getSystemClassLoader.getResource("more.pdf").openConnection().getContentLength)
+  val morePdf = IO(getClass.getResourceAsStream("/more.pdf"))
+  val moreSize = IO(getClass.getResource("/more.pdf").openConnection().getContentLength)
   val randomKey = IO(Key(UUID.randomUUID().toString))
 
   implicit class RichToEffectIO[O](te: ToEffect[IO, O]) {
@@ -56,7 +56,7 @@ class S3Spec extends IntegrationSpec {
 
         "return the object metadata" in withS3 { s3 =>
           s3.headObject(existingBucket, key).futureValue.right.map { os =>
-            os.metadata shouldBe Map("is-test"->"true")
+            os.metadata shouldBe Map("is-test" -> "true")
           }
         }
       }
@@ -64,7 +64,7 @@ class S3Spec extends IntegrationSpec {
       "the key does not exist" should {
 
         "return a Left" in withS3 { s3 =>
-          s3.headObject(existingBucket, notExistingKey).futureValue shouldBe a[Left[_,_]]
+          s3.headObject(existingBucket, notExistingKey).futureValue shouldBe a[Left[_, _]]
         }
 
         "return NoSuchKey error code" in withS3 { s3 =>
@@ -85,7 +85,7 @@ class S3Spec extends IntegrationSpec {
     "the bucked does not exist" should {
 
       "return a Left" in withS3 { s3 =>
-        s3.headObject(nonExistingBucket, existingKey).futureValue shouldBe a[Left[_,_]]
+        s3.headObject(nonExistingBucket, existingKey).futureValue shouldBe a[Left[_, _]]
       }
 
 
@@ -110,95 +110,51 @@ class S3Spec extends IntegrationSpec {
     "the bucked exists" when {
       "the key does exist" should {
         val key = existingKey
-        "return the object eTag" in withS3 { s3 =>
-          Stream.bracket(s3.getObject(existingBucket, key))(
-            objOrError => objOrError
-              .fold(e => Stream.raiseError[Object[IO]](new RuntimeException(e.message)),
-                ok => Stream.emit(ok)
-              ),
-            obj => obj.fold(_ => IO.unit, _.dispose))
-            .map { obj =>
-              obj.summary.eTag shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f")
-            }.compile.lastOrRethrow.futureValue
+        "return the object eTag" in checkGetObject(nonExistingBucket, existingKey) { objOrError =>
+          objOrError.right.map { obj =>
+            obj.summary.eTag shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f")
+          }
         }
 
-        "return the object metadata" in withS3 { s3 =>
-          Stream.bracket(s3.getObject(existingBucket, key))(
-            objOrError => objOrError
-              .fold(e => Stream.raiseError[Object[IO]](new RuntimeException(e.message)),
-                ok => Stream.emit(ok)
-              ),
-            obj => obj.fold(_ => IO.unit, _.dispose))
-            .map { obj =>
-              obj.summary.metadata shouldBe Map("is-test"->"true")
-            }.compile.lastOrRethrow.futureValue
+        "return the object metadata" in checkGetObject(nonExistingBucket, existingKey) { objOrError =>
+          objOrError.right.map { obj =>
+            obj.summary.metadata shouldBe Map("is-test" -> "true")
+          }
         }
 
-        "return the object that can be consumed to a file" in withS3 { s3 =>
-
-          Stream.bracket(s3.getObject(existingBucket, key))(
-            objOrError => objOrError
-              .fold(e => Stream.raiseError[Object[IO]](new RuntimeException(e.message)),
-                ok => Stream.emit(ok)
-              ),
-            obj => obj.fold(_ => IO.unit, _.dispose))
-            .map { obj =>
-              val out = IO(Files.createTempFile("comms-aws", key.value))
-                .flatMap { path =>
+        "return the object that can be consumed to a file" in checkGetObject(nonExistingBucket, existingKey) { objOrError =>
+          objOrError.right.map { obj =>
+            val out = IO(Files.createTempFile("comms-aws", key.value))
+              .flatMap { path =>
                 IO(Files.newOutputStream(path))
               }
-              obj.content.to(writeOutputStream[IO](out)).compile.lastOrRethrow.attempt.futureValue shouldBe a[Right[_,_]]
-            }.compile.lastOrRethrow.futureValue
+            obj.content.to(writeOutputStream[IO](out)).compile.lastOrRethrow.attempt.futureValue shouldBe a[Right[_, _]]
+          }
         }
 
-        "return the object that after disposed cannot be consumed" in withS3 { s3 =>
-
-          Stream.bracket(s3.getObject(existingBucket, key))(
-            objOrError => objOrError
-              .fold(e => Stream.raiseError[Object[IO]](new RuntimeException(e.message)),
-                ok => Stream.emit(ok)
-              ),
-            obj => obj.fold(_ => IO.unit, _.dispose))
-            .map { obj =>
-              (obj.dispose >> obj.content.compile.toList.attempt).futureValue shouldBe a[Left[_,_]]
-            }.compile.lastOrRethrow.futureValue
+        "return the object that after disposed cannot be consumed" in checkGetObject(nonExistingBucket, existingKey) { objOrError =>
+          objOrError.right.map { obj =>
+            (obj.dispose >> obj.content.compile.toList.attempt).futureValue shouldBe a[Left[_, _]]
+          }
         }
       }
 
       "the key does not exist" should {
 
-        "return a Left" in withS3 { s3 =>
-          Stream.bracket(
-            s3.getObject(existingBucket, notExistingKey))(
-            objOrError => Stream.emit(objOrError),
-            objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
-          ).map { objOrError =>
-            objOrError shouldBe a[Left[_,_]]
-          }.compile.lastOrRethrow.futureValue
+        "return a Left" in checkGetObject(existingBucket, notExistingKey) { objOrError =>
+          objOrError shouldBe a[Left[_, _]]
         }
 
-        "return NoSuchKey error code" in withS3 { s3 =>
-          Stream.bracket(
-            s3.getObject(existingBucket, notExistingKey))(
-            objOrError => Stream.emit(objOrError),
-            objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
-          ).map { objOrError =>
-            objOrError.left.map { error =>
-              error.code shouldBe Error.Code("NoSuchKey")
-            }
-          }.compile.lastOrRethrow.futureValue
+        "return NoSuchKey error code" in checkGetObject(existingBucket, notExistingKey) { objOrError =>
+          objOrError.left.map { error =>
+            error.code shouldBe Error.Code("NoSuchKey")
+          }
         }
 
-        "return the given key as resource" in withS3 { s3 =>
-          Stream.bracket(
-            s3.getObject(existingBucket, notExistingKey))(
-            objOrError => Stream.emit(objOrError),
-            objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
-          ).map { objOrError =>
-            objOrError.left.map { error =>
-              error.key shouldBe notExistingKey.some
-            }
-          }.compile.lastOrRethrow.futureValue
+        "return the given key as resource" in checkGetObject(existingBucket, notExistingKey) { objOrError =>
+          objOrError.left.map { error =>
+            error.key shouldBe notExistingKey.some
+          }
         }
 
       }
@@ -206,41 +162,21 @@ class S3Spec extends IntegrationSpec {
 
     "the bucked does not exist" should {
 
-      "return a Left" in withS3 { s3 =>
-        Stream.bracket(
-          s3.getObject(nonExistingBucket, notExistingKey))(
-          objOrError => Stream.emit(objOrError),
-          objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
-        ).map { objOrError =>
-          objOrError shouldBe a[Left[_, _]]
-        }.compile.lastOrRethrow.futureValue
+      "return a Left" in checkGetObject(nonExistingBucket, existingKey) { objOrError =>
+        objOrError shouldBe a[Left[_, _]]
       }
 
 
-      "return NoSuchBucket error code" in withS3 { s3 =>
-        Stream.bracket(
-          s3.getObject(nonExistingBucket, notExistingKey))(
-          objOrError => Stream.emit(objOrError),
-          objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
-        ).map { objOrError =>
-          objOrError.left.map { error =>
-            error.code shouldBe Error.Code("NoSuchBucket")
-          }
-
-        }.compile.lastOrRethrow.futureValue
+      "return NoSuchBucket error code" in checkGetObject(nonExistingBucket, existingKey) { objOrError =>
+        objOrError.left.map { error =>
+          error.code shouldBe Error.Code("NoSuchBucket")
+        }
       }
 
-      "return the given bucket" in withS3 { s3 =>
-        Stream.bracket(
-          s3.getObject(nonExistingBucket, notExistingKey))(
-          objOrError => Stream.emit(objOrError),
-          objOrError => objOrError.fold(_ => IO.unit, obj => obj.dispose)
-        ).map { objOrError =>
-          objOrError.left.map { error =>
-            error.bucketName shouldBe nonExistingBucket.some
-          }
-
-        }.compile.lastOrRethrow.futureValue
+      "return the given bucket" in checkGetObject(nonExistingBucket, existingKey) { objOrError =>
+        objOrError.left.map { error =>
+          error.bucketName shouldBe nonExistingBucket.some
+        }
       }
 
     }
@@ -263,13 +199,13 @@ class S3Spec extends IntegrationSpec {
           key <- randomKey
           content <- contentIo
           result <- s3.putObject(existingBucket, key, content)
-        } yield result).futureValue shouldBe a[Right[_,_]]
+        } yield result).futureValue shouldBe a[Right[_, _]]
 
       }
 
       "upload the object content with custom metadata" in withS3 { s3 =>
 
-        val expectedMetadata = Map("test"->"yes")
+        val expectedMetadata = Map("test" -> "yes")
 
         val contentIo: IO[ObjectContent[IO]] = moreSize.map { size =>
           ObjectContent(
@@ -293,6 +229,13 @@ class S3Spec extends IntegrationSpec {
     }
   }
 
+  def checkGetObject[A](bucket: Bucket, key: Key)(f: Either[Error, Object[IO]] => A):A = withS3 { s3 =>
+    Stream.bracket(
+      s3.getObject(bucket, key))(
+      objOrError => Stream.emit(objOrError),
+      objOrError => objOrError.fold(_ => IO.unit, _.dispose)
+    ).map(f).compile.lastOrRethrow.futureValue
+  }
 
   def withS3[A](f: S3[IO] => A): A = {
     Http1Client

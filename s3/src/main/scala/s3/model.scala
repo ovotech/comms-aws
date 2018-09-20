@@ -18,14 +18,14 @@ package com.ovoenergy.comms.aws
 package s3
 
 import common.model._
-
 import cats.implicits._
 import cats.effect.Async
-
 import java.nio.file.{StandardOpenOption, Files, Path}
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{Executors, ThreadFactory}
 
-import fs2.{Stream, Chunk}, fs2.io._
+import fs2.{Stream, Chunk}
+import fs2.io._
 import org.http4s.{MediaType, Charset}
 
 import scala.concurrent.ExecutionContext
@@ -55,6 +55,7 @@ object model {
       message: String,
       key: Option[Key] = None,
       bucketName: Option[Bucket])
+      extends RuntimeException(message)
 
   object Error {
 
@@ -130,13 +131,18 @@ object model {
 
     private val DefaultBlockingEc: ExecutionContext =
       ExecutionContext.fromExecutorService(
-        Executors.newFixedThreadPool(16, new ThreadFactory {
-          override def newThread(r: Runnable): Thread = {
-            val t = Executors.defaultThreadFactory().newThread(r)
-            t.setDaemon(true)
-            t
+        Executors.newCachedThreadPool(
+          new ThreadFactory {
+            private val counter = new AtomicLong(0L)
+            def newThread(r: Runnable): Thread = {
+              val th = new Thread(r)
+              th.setName(s"object-content-blocking-${counter.getAndIncrement}")
+              th.setDaemon(true)
+              th
+            }
           }
-        }))
+        )
+      )
 
     def fromByteArray[F[_]](
         data: Array[Byte],
@@ -155,25 +161,33 @@ object model {
         blockingEc: ExecutionContext = DefaultBlockingEc)(
         implicit F: Async[F],
         ec: ExecutionContext): F[ObjectContent[F]] =
-      for {
-        _ <- Async.shift[F](blockingEc)
-        contentLength <- F.delay(Files.size(path))
-        _ <- if (contentLength > MaxDataLength) {
-          F.raiseError[Long](
-            new IllegalArgumentException(
-              "The file must be smaller than MaxDataLength bytes"))
-        } else {
-          contentLength.pure[F]
-        }
-        _ <- Async.shift[F](ec)
-      } yield
-        ObjectContent(
-          readInputStream[F](
-            F.delay(Files.newInputStream(path, StandardOpenOption.READ)),
-            ChunkSize),
-          contentLength,
-          chunked = contentLength > ChunkSize)
-
+      Stream
+        .bracket[F, Unit, Unit](Async.shift[F](blockingEc))(
+          _ => Stream.emit(()),
+          _ => Async.shift[F](ec)
+        )
+        .evalMap(_ => F.delay(Files.size(path)))
+        .evalMap(
+          contentLength =>
+            (contentLength > MaxDataLength)
+              .pure[F]
+              .ifM(
+                F.raiseError[Long](new IllegalArgumentException(
+                  "The file must be smaller than MaxDataLength bytes")),
+                contentLength.pure[F]
+            ))
+        .map(
+          contentLength =>
+            ObjectContent(
+              readInputStream[F](
+                F.delay(Files.newInputStream(path, StandardOpenOption.READ)),
+                ChunkSize),
+              contentLength,
+              chunked = contentLength > ChunkSize))
+        .compile
+        .last
+        .map(_.toRight[Throwable](new IllegalStateException("Stream is empty")))
+        .rethrow
   }
 
 }

@@ -31,6 +31,7 @@ import org.http4s.{Service => _, _}
 import org.http4s.headers._
 import scalaxml._
 import Method._
+import cats.Monad
 import client.{Client, DisposableResponse}
 import client.dsl.Http4sClientDsl
 import org.http4s.Header.Raw
@@ -195,38 +196,28 @@ class S3[F[_]: Sync](
         .orElse(EntityDecoder[F, Error].map(_.asLeft[ObjectPut]))
 
     def initHeaders: F[Headers] =
-      for {
-        contentLength <- `Content-Length`
-          .fromLong(content.contentLength)
-          .fold(e => Sync[F].raiseError[`Content-Length`](e), ok => ok.pure[F])
-      } yield
-        Headers(
-          contentLength,
-          `Content-Type`(content.mediaType, content.charset),
-        ).put(metadata.map {
-          case (k, v) => Raw(s"${`X-Amx-Meta-`}$k".ci, v)
-        }.toSeq: _*)
+      Sync[F]
+        .fromEither(`Content-Length`.fromLong(content.contentLength))
+        .map { contentLength =>
+          Headers(
+            contentLength,
+            `Content-Type`(content.mediaType, content.charset),
+          ).put(metadata.map {
+            case (k, v) => Raw(s"${`X-Amx-Meta-`}$k".ci, v)
+          }.toSeq: _*)
+        }
 
-    val extractContent: F[Array[Byte]] = if (content.chunked) {
-      if (content.contentLength > ObjectContent.MaxDataLength) {
-        Sync[F].raiseError(new IllegalArgumentException(
-          s"The content is too long to be transmitted in a single chunk, max allowed content length: ${ObjectContent.MaxDataLength}"))
-      } else {
-        content.data.chunks.compile
-          .fold(ByteBuffer.allocate(content.contentLength.toInt)) {
-            (buffer, chunk) =>
-              buffer.put(chunk.toByteBuffer)
-          }
-          .map(_.array())
-      }
-    } else {
-      content.data.chunks
-        .map(_.toArray)
-        .compile
-        .last
-        .map(_.toRight[Throwable](new IllegalStateException("Empty Stream")))
-        .rethrow
-    }
+    val extractContent: F[Array[Byte]] =
+      (content.contentLength > ObjectContent.MaxDataLength)
+        .pure[F]
+        .ifM(
+          Sync[F].raiseError(new IllegalArgumentException(
+            s"The content is too long to be transmitted in a single chunk, max allowed content length: ${ObjectContent.MaxDataLength}")),
+          content.data.chunks.compile
+            .fold(ByteBuffer.allocate(content.contentLength.toInt))(
+              (buffer, chunk) => buffer put chunk.toByteBuffer)
+            .map(_.array())
+        )
 
     for {
       hs <- initHeaders

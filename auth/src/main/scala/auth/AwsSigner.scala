@@ -133,9 +133,11 @@ object AwsSigner {
     def addHostHeader(r: Request[F]): F[Request[F]] =
       if (r.headers.get(Host).isEmpty) {
         val uri = r.uri
-        uri.host.fold[F[Request[F]]](F.raiseError(new IllegalArgumentException(
-          "The request URI must be absolute or the request must have the Host header")))(
-          host => r.putHeaders(Host(host.value, r.uri.port)).pure[F])
+        F.fromOption(
+            uri.host,
+            new IllegalArgumentException(
+              "The request URI must be absolute or the request must have the Host header"))
+          .map(host => r.putHeaders(Host(host.value, r.uri.port)))
       } else {
         r.pure[F]
       }
