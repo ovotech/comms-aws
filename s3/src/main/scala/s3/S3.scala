@@ -96,19 +96,19 @@ class S3[F[_]: Sync](
         )(error => DecodeResult.success(error))
     }
 
-  private implicit val objectPuttedDecoder: EntityDecoder[F, ObjectPutted] =
-    new EntityDecoder[F, ObjectPutted] {
+  private implicit val objectPutDecoder: EntityDecoder[F, ObjectPut] =
+    new EntityDecoder[F, ObjectPut] {
 
       override def decode(
           msg: Message[F],
-          strict: Boolean): DecodeResult[F, ObjectPutted] = {
+          strict: Boolean): DecodeResult[F, ObjectPut] = {
         msg.headers
           .get(ETag)
           .map(_.tag.tag)
           .map(Etag.apply)
-          .map(etag => ObjectPutted(etag))
+          .map(etag => ObjectPut(etag))
           // TODO InvalidMessageBodyFailure is not correct here as there si no body
-          .fold[DecodeResult[F, ObjectPutted]](
+          .fold[DecodeResult[F, ObjectPut]](
             DecodeResult.failure(
               InvalidMessageBodyFailure("The ETag header must be present"))
           )(ok => DecodeResult.success(ok))
@@ -187,12 +187,12 @@ class S3[F[_]: Sync](
       key: Key,
       content: ObjectContent[F],
       metadata: Map[String, String] = Map.empty)
-    : F[Either[Error, ObjectPutted]] = {
+    : F[Either[Error, ObjectPut]] = {
 
-    implicit val decoder: EntityDecoder[F, Either[Error, ObjectPutted]] =
-      EntityDecoder[F, ObjectPutted]
+    implicit val decoder: EntityDecoder[F, Either[Error, ObjectPut]] =
+      EntityDecoder[F, ObjectPut]
         .map(_.asRight[Error])
-        .orElse(EntityDecoder[F, Error].map(_.asLeft[ObjectPutted]))
+        .orElse(EntityDecoder[F, Error].map(_.asLeft[ObjectPut]))
 
     def initHeaders: F[Headers] =
       for {
@@ -232,7 +232,7 @@ class S3[F[_]: Sync](
       hs <- initHeaders
       contentAsSingleChunk <- extractContent
       request <- PUT(uri(bucket, key), contentAsSingleChunk, hs.toList: _*)
-      result <- signedClient.fetch(request)(_.as[Either[Error, ObjectPutted]])
+      result <- signedClient.fetch(request)(_.as[Either[Error, ObjectPut]])
     } yield result
   }
 

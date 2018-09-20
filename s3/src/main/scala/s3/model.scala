@@ -113,7 +113,7 @@ object model {
 
   case class Etag(value: String)
 
-  case class ObjectPutted(etag: Etag)
+  case class ObjectPut(etag: Etag)
 
   // TODO Use something like Byte/KiloByte/Mb/Gb for the length
   case class ObjectContent[F[_]](
