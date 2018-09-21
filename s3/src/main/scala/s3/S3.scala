@@ -31,7 +31,6 @@ import org.http4s.{Service => _, _}
 import org.http4s.headers._
 import scalaxml._
 import Method._
-import cats.Monad
 import client.{Client, DisposableResponse}
 import client.dsl.Http4sClientDsl
 import org.http4s.Header.Raw
@@ -141,15 +140,14 @@ class S3[F[_]: Sync](
   /**
     * Return an S3 [[Object]] in the given bucket and key. If the object does not exist, it will return an [[Error]].
     *
-    * BEWARE: that once the returned effect is resolved and the result is a [[Object]] you will need either to run the
-    * body or resolving te [[Object.dispose]] effect to release the HTTP response.
+    * BEWARE: that once the returned effect is resolved and the result is a [[Object]] you will to consume the body.
     */
   def getObject(bucket: Bucket, key: Key): F[Either[Error, Object[F]]] = {
 
     def parseObject(dr: DisposableResponse[F]): F[Object[F]] = {
       val response = dr.response
       response.as[ObjectSummary].map { os =>
-        Object(os, response.body.onFinalize(dr.dispose), dr.dispose)
+        Object(os, response.body.onFinalize(dr.dispose))
       }
     }
 
@@ -190,11 +188,6 @@ class S3[F[_]: Sync](
       metadata: Map[String, String] = Map.empty)
     : F[Either[Error, ObjectPut]] = {
 
-    implicit val decoder: EntityDecoder[F, Either[Error, ObjectPut]] =
-      EntityDecoder[F, ObjectPut]
-        .map(_.asRight[Error])
-        .orElse(EntityDecoder[F, Error].map(_.asLeft[ObjectPut]))
-
     def initHeaders: F[Headers] =
       Sync[F]
         .fromEither(`Content-Length`.fromLong(content.contentLength))
@@ -223,7 +216,10 @@ class S3[F[_]: Sync](
       hs <- initHeaders
       contentAsSingleChunk <- extractContent
       request <- PUT(uri(bucket, key), contentAsSingleChunk, hs.toList: _*)
-      result <- signedClient.fetch(request)(_.as[Either[Error, ObjectPut]])
+      result <- signedClient.fetch(request) { r =>
+        if (r.status.isSuccess) r.as[ObjectPut].map(_.asRight[Error])
+        else r.as[Error].map(_.asLeft[ObjectPut])
+      }
     } yield result
   }
 

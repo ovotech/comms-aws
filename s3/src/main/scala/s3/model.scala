@@ -35,19 +35,15 @@ object model {
   case class ObjectSummary(eTag: Etag, metadata: Map[String, String])
 
   /**
-    * The S3 Object. Running the content stream or calling dispose will dispose
+    * The S3 Object. Running the content stream will dispose
     * the underling connection
     *
     * @param eTag     The S3 ETag
     * @param content  The Stream[F, Byte] on the object content.
     * @param metadata The metadata stored in the S3 object.
-    * @param dispose  This will cause the underlying HTTP response to be closed
     * @tparam F The effect
     */
-  case class Object[F[_]](
-      summary: ObjectSummary,
-      content: Stream[F, Byte],
-      dispose: F[Unit])
+  case class Object[F[_]](summary: ObjectSummary, content: Stream[F, Byte])
 
   case class Error(
       code: Error.Code,
