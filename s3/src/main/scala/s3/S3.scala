@@ -147,7 +147,10 @@ class S3[F[_]: Sync](
     def parseObject(dr: DisposableResponse[F]): F[Object[F]] = {
       val response = dr.response
       response.as[ObjectSummary].map { os =>
-        Object(os, response.body.onFinalize(dr.dispose))
+        Object(
+          os,
+          response.body.onFinalize(dr.dispose)
+        )
       }
     }
 

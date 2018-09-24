@@ -82,8 +82,6 @@ lazy val root = (project in file("."))
         "-Ywarn-unused",
         "-Ypartial-unification"
       ),
-      scalacOptions in(Compile, console) --= Seq("-Xlint", "-Ywarn-unused", "-Ywarn-unused-import"),
-      scalacOptions in(Test, console) := (scalacOptions in(Compile, console)).value,
       resolvers ++= Seq(
         Resolver.bintrayRepo("ovotech", "maven")
       ),
