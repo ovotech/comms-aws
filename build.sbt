@@ -140,6 +140,7 @@ lazy val s3 = (project in file("s3"))
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest", auth)
   .configs(IntegrationTest)
+  .settings(releaseOptions)
   .settings(
     name := "comms-aws-s3",
   )
