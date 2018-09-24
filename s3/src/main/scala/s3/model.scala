@@ -18,26 +18,32 @@ package com.ovoenergy.comms.aws
 package s3
 
 import common.model._
+import cats.implicits._
+import cats.effect.Async
+import java.nio.file.{StandardOpenOption, Files, Path}
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.{Executors, ThreadFactory}
 
-import cats.syntax.option._
-import fs2.Stream
-import org.http4s.Uri
+import fs2.{Stream, Chunk}
+import fs2.io._
+import org.http4s.{MediaType, Charset}
+
+import scala.concurrent.ExecutionContext
 
 object model {
 
+  case class ObjectSummary(eTag: Etag, metadata: Map[String, String])
+
   /**
-    * The S3 Object. Running the content stream or calling dispose will dispose
+    * The S3 Object. Running the content stream will dispose
     * the underling connection
     *
-    * @param eTag    The S3 ETag
-    * @param content The Stream[F, Byte] on the object content.
-    * @param dispose This will cause the underlying HTTP response to be closed
+    * @param eTag     The S3 ETag
+    * @param content  The Stream[F, Byte] on the object content.
+    * @param metadata The metadata stored in the S3 object.
     * @tparam F The effect
     */
-  case class Object[F[_]](
-      eTag: Etag,
-      content: Stream[F, Byte],
-      dispose: F[Unit])
+  case class Object[F[_]](summary: ObjectSummary, content: Stream[F, Byte])
 
   case class Error(
       code: Error.Code,
@@ -45,6 +51,7 @@ object model {
       message: String,
       key: Option[Key] = None,
       bucketName: Option[Bucket])
+      extends RuntimeException(message)
 
   object Error {
 
@@ -102,5 +109,81 @@ object model {
   case class Key(value: String)
 
   case class Etag(value: String)
+
+  case class ObjectPut(etag: Etag)
+
+  // TODO Use something like Byte/KiloByte/Mb/Gb for the length
+  case class ObjectContent[F[_]](
+      data: Stream[F, Byte],
+      contentLength: Long,
+      chunked: Boolean,
+      mediaType: MediaType = MediaType.`application/octet-stream`,
+      charset: Option[Charset] = None)
+
+  object ObjectContent {
+
+    val MaxDataLength: Long = Int.MaxValue.toLong
+    val ChunkSize: Int = 64 * 1024
+
+    private val DefaultBlockingEc: ExecutionContext =
+      ExecutionContext.fromExecutorService(
+        Executors.newCachedThreadPool(
+          new ThreadFactory {
+            private val counter = new AtomicLong(0L)
+            def newThread(r: Runnable): Thread = {
+              val th = new Thread(r)
+              th.setName(s"object-content-blocking-${counter.getAndIncrement}")
+              th.setDaemon(true)
+              th
+            }
+          }
+        )
+      )
+
+    def fromByteArray[F[_]](
+        data: Array[Byte],
+        mediaType: MediaType = MediaType.`application/octet-stream`,
+        charset: Option[Charset] = None): ObjectContent[F] =
+      ObjectContent[F](
+        data = Stream.chunk(Chunk.boxed[Byte](data)).covary[F],
+        contentLength = data.length.toLong,
+        mediaType = mediaType,
+        charset = charset,
+        chunked = false
+      )
+
+    def fromPath[F[_]](
+        path: Path,
+        blockingEc: ExecutionContext = DefaultBlockingEc)(
+        implicit F: Async[F],
+        ec: ExecutionContext): F[ObjectContent[F]] =
+      Stream
+        .bracket[F, Unit, Unit](Async.shift[F](blockingEc))(
+          _ => Stream.emit(()),
+          _ => Async.shift[F](ec)
+        )
+        .evalMap(_ => F.delay(Files.size(path)))
+        .evalMap(
+          contentLength =>
+            (contentLength > MaxDataLength)
+              .pure[F]
+              .ifM(
+                F.raiseError[Long](new IllegalArgumentException(
+                  "The file must be smaller than MaxDataLength bytes")),
+                contentLength.pure[F]
+            ))
+        .map(
+          contentLength =>
+            ObjectContent(
+              readInputStream[F](
+                F.delay(Files.newInputStream(path, StandardOpenOption.READ)),
+                ChunkSize),
+              contentLength,
+              chunked = contentLength > ChunkSize))
+        .compile
+        .last
+        .map(_.toRight[Throwable](new IllegalStateException("Stream is empty")))
+        .rethrow
+  }
 
 }

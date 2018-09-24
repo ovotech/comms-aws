@@ -18,9 +18,6 @@ package com.ovoenergy.comms.aws
 package s3
 
 import model._
-import common.Credentials._
-
-import java.time._
 
 import org.http4s._
 import syntax.all._
@@ -46,6 +43,8 @@ trait HttpCodecs {
 }
 
 object headers extends HttpCodecs {
+
+  val `X-Amx-Meta-` = "x-amz-meta-"
 
   object `X-Amz-Storage-Class` extends HeaderKey.Singleton {
     type HeaderT = `X-Amz-Storage-Class`

@@ -19,22 +19,27 @@ package auth
 
 import AwsSigner._
 import common._
+import common.model._
 import headers.{`X-Amz-Content-SHA256`, `X-Amz-Security-Token`, `X-Amz-Date`}
 
+import cats.data.Kleisli
+import cats.effect.Sync
+import cats.implicits._
+
 import scala.util.matching.Regex
+
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
+
+import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.time.{ZoneOffset, Clock, Instant}
 
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import javax.xml.bind.DatatypeConverter
-import cats.data.Kleisli
-import cats.effect.Sync
-import cats.implicits._
+
 import fs2.hash._
 import org.http4s.{Request, HttpDate}
 import org.http4s.Header.Raw
@@ -128,9 +133,11 @@ object AwsSigner {
     def addHostHeader(r: Request[F]): F[Request[F]] =
       if (r.headers.get(Host).isEmpty) {
         val uri = r.uri
-        uri.host.fold[F[Request[F]]](F.raiseError(new IllegalArgumentException(
-          "The request URI must be absolute or the request must have the Host header")))(
-          host => r.putHeaders(Host(host.value, r.uri.port)).pure[F])
+        F.fromOption(
+            uri.host,
+            new IllegalArgumentException(
+              "The request URI must be absolute or the request must have the Host header"))
+          .map(host => r.putHeaders(Host(host.value, r.uri.port)))
       } else {
         r.pure[F]
       }

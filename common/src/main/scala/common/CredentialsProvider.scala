@@ -17,7 +17,9 @@
 package com.ovoenergy.comms.aws
 package common
 
+import model._
 import Credentials._
+
 import cats.effect.Sync
 import cats.implicits._
 import com.amazonaws.auth.{

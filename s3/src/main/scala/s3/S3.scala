@@ -17,25 +17,23 @@
 package com.ovoenergy.comms.aws
 package s3
 
-import auth.AwsSigner
+import headers._
+import model._
 import common._
-import org.http4s.{
-  DecodeResult,
-  Uri,
-  InvalidMessageBodyFailure,
-  client,
-  Method,
-  EntityDecoder
-}
+import common.model._
+import cats.implicits._
+import cats.effect.Sync
+import java.nio.ByteBuffer
+
+import auth.AwsSigner
+import org.http4s.syntax.all._
+import org.http4s.{Service => _, _}
+import org.http4s.headers._
+import scalaxml._
+import Method._
 import client.{Client, DisposableResponse}
 import client.dsl.Http4sClientDsl
-import Method._
-import cats.effect.Sync
-import cats.implicits._
-import com.ovoenergy.comms.aws.common.model.RequestId
-import model.{Key, Etag, Bucket, _}
-import org.http4s.headers.ETag
-import org.http4s.scalaxml._
+import org.http4s.Header.Raw
 
 import scala.xml.Elem
 
@@ -98,37 +96,134 @@ class S3[F[_]: Sync](
         )(error => DecodeResult.success(error))
     }
 
+  private implicit val objectPutDecoder: EntityDecoder[F, ObjectPut] =
+    new EntityDecoder[F, ObjectPut] {
+
+      override def decode(
+          msg: Message[F],
+          strict: Boolean): DecodeResult[F, ObjectPut] = {
+        msg.headers
+          .get(ETag)
+          .map(_.tag.tag)
+          .map(Etag.apply)
+          .map(etag => ObjectPut(etag))
+          // TODO InvalidMessageBodyFailure is not correct here as there si no body
+          .fold[DecodeResult[F, ObjectPut]](
+            DecodeResult.failure(
+              InvalidMessageBodyFailure("The ETag header must be present"))
+          )(ok => DecodeResult.success(ok))
+      }
+
+      override val consumes: Set[MediaRange] = MediaRange.standard.values.toSet
+    }
+
+  private implicit val objectSummaryDecoder: EntityDecoder[F, ObjectSummary] =
+    EntityDecoder.decodeBy(MediaRange.`*/*`) { response =>
+      val etag: DecodeResult[F, Etag] = response.headers
+        .get(ETag)
+        .map(_.tag.tag)
+        .map(Etag.apply)
+        .map(DecodeResult.success[F, Etag](_))
+        .getOrElse(DecodeResult.failure[F, Etag](MalformedMessageBodyFailure(
+          "ETag header must be present on the response")))
+
+      val metadata: Map[String, String] = response.headers.collect {
+        case h if h.name.value.toLowerCase.startsWith(`X-Amx-Meta-`) =>
+          h.name.value.substring(`X-Amx-Meta-`.length) -> h.value
+      }.toMap
+
+      etag.map { eTag =>
+        model.ObjectSummary(eTag, metadata)
+      }
+    }
+
   /**
     * Return an S3 [[Object]] in the given bucket and key. If the object does not exist, it will return an [[Error]].
     *
-    * BEWARE: that once the returned effect is resolved and the result is a [[Object]] you will need either to run the
-    * body or resolving te [[Object.dispose]] effect to release the HTTP response.
+    * BEWARE: that once the returned effect is resolved and the result is a [[Object]] you will to consume the body.
     */
   def getObject(bucket: Bucket, key: Key): F[Either[Error, Object[F]]] = {
 
     def parseObject(dr: DisposableResponse[F]): F[Object[F]] = {
       val response = dr.response
-
-      response.headers
-        .get(ETag)
-        .fold(Sync[F].raiseError[ETag](new IllegalArgumentException(
-          "ETag header must be present on the response")))(_.pure[F])
-        .map { etagHeader =>
-          val eTag = Etag(etagHeader.tag.tag)
-          Object(eTag, response.body.onFinalize(dr.dispose), dr.dispose)
-        }
+      response.as[ObjectSummary].map { os =>
+        Object(
+          os,
+          response.body.onFinalize(dr.dispose)
+        )
+      }
     }
+
+    def parseDisposableResponse(
+        dr: DisposableResponse[F]): F[Either[Error, Object[F]]] =
+      if (dr.response.status.isSuccess) {
+        parseObject(dr).map(_.asRight[Error])
+      } else {
+        dr(_.as[Error]).map(_.asLeft[Object[F]])
+      }
 
     for {
       request <- GET(uri(bucket, key))
-      response <- signedClient.open.apply(request)
-      result <- if (response.response.status.isSuccess) {
-        parseObject(response).map(_.asRight[Error])
-      } else {
-        response(_.as[Error]).map(_.asLeft[Object[F]])
+      response <- signedClient.open(request)
+      result <- parseDisposableResponse(response)
+    } yield result
+
+  }
+
+  def headObject(bucket: Bucket, key: Key): F[Either[Error, ObjectSummary]] = {
+
+    for {
+      request <- GET(uri(bucket, key))
+      result <- signedClient.fetch(request) {
+        case r if r.status.isSuccess =>
+          r.as[ObjectSummary].map(_.asRight[Error])
+        case r =>
+          r.as[Error].map(_.asLeft[ObjectSummary])
       }
     } yield result
 
+  }
+
+  def putObject(
+      bucket: Bucket,
+      key: Key,
+      content: ObjectContent[F],
+      metadata: Map[String, String] = Map.empty)
+    : F[Either[Error, ObjectPut]] = {
+
+    def initHeaders: F[Headers] =
+      Sync[F]
+        .fromEither(`Content-Length`.fromLong(content.contentLength))
+        .map { contentLength =>
+          Headers(
+            contentLength,
+            `Content-Type`(content.mediaType, content.charset),
+          ).put(metadata.map {
+            case (k, v) => Raw(s"${`X-Amx-Meta-`}$k".ci, v)
+          }.toSeq: _*)
+        }
+
+    val extractContent: F[Array[Byte]] =
+      (content.contentLength > ObjectContent.MaxDataLength)
+        .pure[F]
+        .ifM(
+          Sync[F].raiseError(new IllegalArgumentException(
+            s"The content is too long to be transmitted in a single chunk, max allowed content length: ${ObjectContent.MaxDataLength}")),
+          content.data.chunks.compile
+            .fold(ByteBuffer.allocate(content.contentLength.toInt))(
+              (buffer, chunk) => buffer put chunk.toByteBuffer)
+            .map(_.array())
+        )
+
+    for {
+      hs <- initHeaders
+      contentAsSingleChunk <- extractContent
+      request <- PUT(uri(bucket, key), contentAsSingleChunk, hs.toList: _*)
+      result <- signedClient.fetch(request) { r =>
+        if (r.status.isSuccess) r.as[ObjectPut].map(_.asRight[Error])
+        else r.as[Error].map(_.asLeft[ObjectPut])
+      }
+    } yield result
   }
 
 }
