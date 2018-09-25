@@ -53,9 +53,13 @@ class S3[F[_]: Sync](
     Uri.unsafeFromString(s"https://s3-${region.value}.amazonaws.com")
   }
 
-  // TODO It only supports path style access so far
   private def uri(bucket: Bucket, key: Key) = {
-    endpoint / bucket.name / key.value
+    // TODO It only supports path style access so far
+    val bucketEndpoint = endpoint / bucket.name
+
+    key.value.split("/", -1).foldLeft(bucketEndpoint) { (acc, x) =>
+      acc / x
+    }
   }
 
   private implicit val errorEntityDecoder: EntityDecoder[F, Error] =
