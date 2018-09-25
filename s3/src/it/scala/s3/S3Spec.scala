@@ -4,19 +4,18 @@ package s3
 import model._
 import common.{IntegrationSpec, CredentialsProvider}
 import common.model._
-
 import java.nio.file.Files
 import java.util.UUID
+import java.nio.charset.StandardCharsets.UTF_8
 
 import cats.implicits._
 import cats.effect.IO
-
 import fs2._
 import fs2.io._
 import fs2.Stream.ToEffect
-
 import org.http4s.client._
 import blaze.Http1Client
+import com.ovoenergy.comms.aws.s3
 import middleware.{ResponseLogger, RequestLogger}
 
 import scala.concurrent.duration._
@@ -26,6 +25,8 @@ class S3Spec extends IntegrationSpec {
   val existingKey = Key("more.pdf")
   val duplicateKey = Key("duplicate")
   val notExistingKey = Key("less.pdf")
+  val nestedKey = Key("a/b/c")
+  val slashLeadingKey = Key("/a")
 
   val existingBucket = Bucket("ovo-comms-test")
   val nonExistingBucket = Bucket("ovo-comms-non-existing-bucket")
@@ -231,10 +232,34 @@ class S3Spec extends IntegrationSpec {
         }
       }
 
+      "the key is nested" should {
+        "succeeding" in {
+
+          val content = ObjectContent.fromByteArray[IO](UUID.randomUUID().toString.getBytes(UTF_8))
+
+          withS3 { s3 =>
+            s3.putObject(existingBucket, nestedKey, content).futureValue shouldBe a[Right[_,_]]
+          }
+
+        }
+      }
+
+      "the key has leading slash" should {
+        "succeeding" in {
+
+          val content = ObjectContent.fromByteArray[IO](UUID.randomUUID().toString.getBytes(UTF_8))
+
+          withS3 { s3 =>
+            s3.putObject(existingBucket, slashLeadingKey, content).futureValue shouldBe a[Right[_,_]]
+          }
+
+        }
+      }
+
       "the key does exist" should {
         "overwrite the existing key" in withS3 { s3 =>
 
-          val content = ObjectContent.fromByteArray[IO](Array.fill(128 * 1026)(0: Byte))
+          val content = ObjectContent.fromByteArray[IO](UUID.randomUUID().toString.getBytes(UTF_8))
           (for {
             _ <- s3.putObject(existingBucket, duplicateKey, content)
             result <- s3.putObject(existingBucket, duplicateKey, content)
@@ -273,7 +298,7 @@ class S3Spec extends IntegrationSpec {
       .stream[IO]()
       .map { client =>
         val responseLogger: Client[IO] => Client[IO] = ResponseLogger.apply0[IO](logBody = true, logHeaders = true)
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger.apply0[IO](logBody = false, logHeaders = true)
+        val requestLogger: Client[IO] => Client[IO] = RequestLogger.apply0[IO](logBody = false, logHeaders = true, redactHeadersWhen = _ => false)
         new S3[IO](requestLogger(responseLogger(client)), CredentialsProvider.default[IO], Region.`eu-west-1`)
       }
       .map(f)
