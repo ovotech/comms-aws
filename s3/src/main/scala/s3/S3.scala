@@ -40,22 +40,25 @@ import scala.xml.Elem
 class S3[F[_]: Sync](
     client: Client[F],
     credentialsProvider: CredentialsProvider[F],
-    region: Region)
+    region: Region,
+    endpoint: Option[Uri] = None)
     extends Http4sClientDsl[F] {
 
   private val signer = AwsSigner[F](credentialsProvider, region, Service.S3)
   private val signedClient = signer(client)
 
-  private val endpoint = if (region == Region.`us-east-1`) {
-    Uri.uri("https://s3.amazonaws.com")
-  } else {
-    // TODO use the total version, we may need a S3 builder that returns F[S3[F]]
-    Uri.unsafeFromString(s"https://s3-${region.value}.amazonaws.com")
+  private val baseEndpoint = endpoint.getOrElse {
+    if (region == Region.`us-east-1`) {
+      Uri.uri("https://s3.amazonaws.com")
+    } else {
+      // TODO use the total version, we may need a S3 builder that returns F[S3[F]]
+      Uri.unsafeFromString(s"https://s3-${region.value}.amazonaws.com")
+    }
   }
 
   private def uri(bucket: Bucket, key: Key) = {
-    // TODO It only supports path style access so far
-    val bucketEndpoint = endpoint / bucket.name
+    // TODO It only supports path style access ATM
+    val bucketEndpoint = baseEndpoint / bucket.name
 
     key.value.split("/", -1).foldLeft(bucketEndpoint) { (acc, x) =>
       acc / x
