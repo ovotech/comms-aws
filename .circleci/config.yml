@@ -194,7 +194,10 @@ workflows:
         - integration_test
         filters:
           branches:
-            only: master
+            only:
+            - master
+            - /release/.*/
+
 
     - release:
         requires:
