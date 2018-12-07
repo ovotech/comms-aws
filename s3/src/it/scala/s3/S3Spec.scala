@@ -27,6 +27,7 @@ class S3Spec extends IntegrationSpec {
   val notExistingKey = Key("less.pdf")
   val nestedKey = Key("a/b/c")
   val slashLeadingKey = Key("/a")
+  val hashedKey = Key("60740897-adc4-4a66-badb-dc2e95f7217a#210")
 
   val existingBucket = Bucket("ovo-comms-test")
   val nonExistingBucket = Bucket("ovo-comms-non-existing-bucket")
@@ -251,6 +252,18 @@ class S3Spec extends IntegrationSpec {
 
           withS3 { s3 =>
             s3.putObject(existingBucket, slashLeadingKey, content).futureValue shouldBe a[Right[_,_]]
+          }
+
+        }
+      }
+
+      "the key has hashes inside" should {
+        "succeeding" in {
+
+          val content = ObjectContent.fromByteArray[IO](UUID.randomUUID().toString.getBytes(UTF_8))
+
+          withS3 { s3 =>
+            s3.putObject(existingBucket, hashedKey, content).futureValue shouldBe a[Right[_,_]]
           }
 
         }
