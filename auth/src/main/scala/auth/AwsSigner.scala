@@ -21,17 +21,13 @@ import AwsSigner._
 import common._
 import common.model._
 import headers.{`X-Amz-Content-SHA256`, `X-Amz-Security-Token`, `X-Amz-Date`}
-
-import cats.data.Kleisli
-import cats.effect.Sync
+import cats.effect.{Sync, Resource}
 import cats.implicits._
 
 import scala.util.matching.Regex
-
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
-
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -39,11 +35,10 @@ import java.time.temporal.ChronoUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import javax.xml.bind.DatatypeConverter
-
 import fs2.hash._
-import org.http4s.{Request, HttpDate}
+import org.http4s.{Request, HttpDate, Response}
 import org.http4s.Header.Raw
-import org.http4s.client.{Client, DisposableResponse}
+import org.http4s.client.Client
 import org.http4s.headers.{Date, Authorization, Host}
 import org.http4s.syntax.all._
 
@@ -322,19 +317,20 @@ class AwsSigner[F[_]](
 
   def apply(client: Client[F])(implicit F: Sync[F]): Client[F] = {
 
-    val sign: Kleisli[F, Request[F], DisposableResponse[F]] = Kleisli {
-      request =>
-        for {
-          credentials <- credentialsProvider.get
-          now <- Sync[F].delay(
-            Instant.now(Clock.systemUTC()).truncatedTo(ChronoUnit.SECONDS))
-          fixed <- fixRequest(request, credentials, now)
-          signed <- signRequest(fixed, credentials, region, service)
-          result <- client.open(signed)
-        } yield result
+    val sign: Request[F] => Resource[F, Response[F]] = { request =>
+      for {
+        credentials <- Resource.liftF(credentialsProvider.get)
+        now <- Resource.liftF(
+          Sync[F].delay(
+            Instant.now(Clock.systemUTC()).truncatedTo(ChronoUnit.SECONDS)))
+        fixed <- Resource.liftF(fixRequest(request, credentials, now))
+        signed <- Resource.liftF(
+          signRequest(fixed, credentials, region, service))
+        result <- client.run(signed)
+      } yield result
     }
 
-    client.copy(open = sign)
+    Client(sign)
   }
 
 }

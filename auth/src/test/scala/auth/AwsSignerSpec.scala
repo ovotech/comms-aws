@@ -249,9 +249,10 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         .parse("20150830T123600Z", AwsSigner.dateTimeFormatter)
         .atZone(ZoneOffset.UTC)
 
-      val request = POST(Uri.uri("/")).map(
-        _.putHeaders(Host("example.amazonaws.com"))
-          .putHeaders(`X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))))
+      val request = POST(
+        Uri.uri("/"),
+        Host("example.amazonaws.com"),
+        `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime)))
 
       withSignRequest(
         request,
@@ -277,14 +278,15 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         .parse("20150830T123600Z", AwsSigner.dateTimeFormatter)
         .atZone(ZoneOffset.UTC)
 
-      val request = POST(Uri.uri("/"), "Param1=value1")
-        .map(
-          _.withHeaders(
-            Headers.empty.put(
-              Host("example.amazonaws.com"),
-              `Content-Type`(MediaType.`application/x-www-form-urlencoded`),
-              `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime)))
-          ))
+      val request = POST
+        .apply(
+          "Param1=value1",
+          Uri.uri("/"),
+          Host("example.amazonaws.com"),
+          `Content-Type`(MediaType.application.`x-www-form-urlencoded`),
+          `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
+        )
+        .map(_.removeHeader(`Content-Length`))
 
       withSignRequest(
         request,

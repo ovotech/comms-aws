@@ -3,7 +3,7 @@ package auth
 
 import common._
 import common.model._
-import cats.effect.IO
+import cats.effect.{IO, ContextShift}
 import org.http4s.client.Client
 import org.http4s.client.blaze.Http1Client
 import cats.implicits._
@@ -17,6 +17,8 @@ import scala.concurrent.duration._
 
 class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
 
+  implicit val ctx: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global)
+
   "AwsSigner" should {
     "sign request valid for S3" in {
       withHttpClient { client =>
@@ -26,8 +28,8 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
           Region.`eu-west-1`,
           Service.S3)
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger.apply0[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger.apply0[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
@@ -48,8 +50,8 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
           Region.`eu-west-1`,
           Service.S3)
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger.apply0[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger.apply0[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
