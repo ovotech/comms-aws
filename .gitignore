@@ -7,6 +7,10 @@ target/
 .idea_modules/
 *.iml
 
+# metals
+.metals/
+.bloop/
+
 # Ensime
 .ensime
 .ensime_cache/

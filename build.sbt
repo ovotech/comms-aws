@@ -1,14 +1,14 @@
-lazy val fs2Version = "0.10.6"
+lazy val fs2Version = "1.0.2"
 lazy val catsEffectVersion = "0.10.1"
-lazy val catsVersion = "1.2.0"
-lazy val awsSdkVersion = "1.11.391"
+lazy val catsVersion = "1.5.0"
+lazy val awsSdkVersion = "1.11.465"
 lazy val scalatestVersion = "3.0.5"
-lazy val scalacheckVersion = "1.13.5"
+lazy val scalacheckVersion = "1.14.0"
 lazy val slf4jVersion = "1.7.25"
 lazy val log4jVersion = "2.11.1"
-lazy val http4sVersion = "0.18.18"
-lazy val commsDockerkitVersion = "1.8.2"
-lazy val scalaXmlVersion = "1.1.0"
+lazy val http4sVersion = "0.20.0-M4"
+lazy val commsDockerkitVersion = "1.8.6"
+lazy val scalaXmlVersion = "1.1.1"
 
 
 lazy val IntegrationTest = config("it") extend Test
@@ -61,7 +61,7 @@ lazy val root = (project in file("."))
           url("https://github.com/ovotech/comms-aws"),
           "scm:git:git@github.com:ovotech/comms-aws.git")
       ),
-      scalaVersion := "2.12.6",
+      scalaVersion := "2.12.8",
       scalacOptions ++= Seq(
         "-deprecation",
         "-encoding",
@@ -150,6 +150,7 @@ lazy val s3 = (project in file("s3"))
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-scala-xml" % http4sVersion,
       "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion,
+      "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
       "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion % s"$Test,$IntegrationTest",
     )
   )

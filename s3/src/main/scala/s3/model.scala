@@ -19,7 +19,7 @@ package s3
 
 import common.model._
 import cats.implicits._
-import cats.effect.Async
+import cats.effect.{Async, ContextShift}
 import java.nio.file.{StandardOpenOption, Files, Path}
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{Executors, ThreadFactory}
@@ -38,9 +38,7 @@ object model {
     * The S3 Object. Running the content stream will dispose
     * the underling connection
     *
-    * @param eTag     The S3 ETag
     * @param content  The Stream[F, Byte] on the object content.
-    * @param metadata The metadata stored in the S3 object.
     * @tparam F The effect
     */
   case class Object[F[_]](summary: ObjectSummary, content: Stream[F, Byte])
@@ -51,7 +49,7 @@ object model {
       message: String,
       key: Option[Key] = None,
       bucketName: Option[Bucket])
-      extends RuntimeException(message)
+      extends Exception(message)
 
   object Error {
 
@@ -117,7 +115,7 @@ object model {
       data: Stream[F, Byte],
       contentLength: Long,
       chunked: Boolean,
-      mediaType: MediaType = MediaType.`application/octet-stream`,
+      mediaType: MediaType = MediaType.application.`octet-stream`,
       charset: Option[Charset] = None)
 
   object ObjectContent {
@@ -142,7 +140,7 @@ object model {
 
     def fromByteArray[F[_]](
         data: Array[Byte],
-        mediaType: MediaType = MediaType.`application/octet-stream`,
+        mediaType: MediaType = MediaType.application.`octet-stream`,
         charset: Option[Charset] = None): ObjectContent[F] =
       ObjectContent[F](
         data = Stream.chunk(Chunk.boxed[Byte](data)).covary[F],
@@ -152,17 +150,12 @@ object model {
         chunked = false
       )
 
-    def fromPath[F[_]](
+    def fromPath[F[_]: ContextShift](
         path: Path,
         blockingEc: ExecutionContext = DefaultBlockingEc)(
-        implicit F: Async[F],
-        ec: ExecutionContext): F[ObjectContent[F]] =
+        implicit F: Async[F]): F[ObjectContent[F]] =
       Stream
-        .bracket[F, Unit, Unit](Async.shift[F](blockingEc))(
-          _ => Stream.emit(()),
-          _ => Async.shift[F](ec)
-        )
-        .evalMap(_ => F.delay(Files.size(path)))
+        .eval(F.delay(Files.size(path)))
         .evalMap(
           contentLength =>
             (contentLength > MaxDataLength)
@@ -177,7 +170,9 @@ object model {
             ObjectContent(
               readInputStream[F](
                 F.delay(Files.newInputStream(path, StandardOpenOption.READ)),
-                ChunkSize),
+                ChunkSize,
+                blockingEc
+              ),
               contentLength,
               chunked = contentLength > ChunkSize))
         .compile
