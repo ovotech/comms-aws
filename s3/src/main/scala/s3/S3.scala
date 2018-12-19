@@ -169,7 +169,9 @@ object S3 {
           case (response, release) =>
             if (response.status.isSuccess) {
               parseObjectSummary(response)
-                .fold(throw _, identity)
+                .leftWiden[Throwable]
+                .value
+                .rethrow
                 .map { os =>
                   Object(
                     os,

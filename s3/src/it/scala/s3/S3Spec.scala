@@ -137,7 +137,7 @@ class S3Spec extends IntegrationSpec {
 
         "return the object that can be consumed to a file" in  { 
           withS3 { s3 =>
-            EitherT(s3.getObject(existingBucket, existingKey)).fold(throw _, identity _).flatMap(_.content.compile.toList)
+            EitherT(s3.getObject(existingBucket, existingKey)).leftWiden[Throwable].value.rethrow.flatMap(_.content.compile.toList)
           }.futureValue should not be(empty)
         }
 
