@@ -47,7 +47,8 @@ trait S3[F[_]] {
 
   def getObject(bucket: Bucket, key: Key): F[Either[Error, Object[F]]]
 
-  def getObjectAs[A](bucket: Bucket, key: Key)(f: (ObjectSummary, fs2.Stream[F, Byte]) => F[A]): F[Either[Error, A]]
+  def getObjectAs[A](bucket: Bucket, key: Key)(
+      f: (ObjectSummary, fs2.Stream[F, Byte]) => F[A]): F[Either[Error, A]]
 
   def putObject(
       bucket: Bucket,
@@ -167,8 +168,8 @@ object S3 {
         rr.allocated.bracketCase {
           case (response, release) =>
             if (response.status.isSuccess) {
-              response
-                .as[ObjectSummary]
+              parseObjectSummary(response)
+                .fold(throw _, identity)
                 .map { os =>
                   Object(
                     os,
@@ -190,22 +191,24 @@ object S3 {
       } yield result
     }
 
-    def getObjectAs[A](bucket: Bucket, key: Key)(f: (ObjectSummary, fs2.Stream[F, Byte]) => F[A]): F[Either[Error, A]] = {
+    def getObjectAs[A](bucket: Bucket, key: Key)(
+        f: (ObjectSummary, fs2.Stream[F, Byte]) => F[A])
+      : F[Either[Error, A]] = {
 
       def handleOk(response: Response[F]): F[A] = {
         parseObjectSummary(response)
-        .leftWiden[Throwable]
-        .value
-        .rethrow
-        .flatMap { summary =>
-          f(summary, response.body)
-        }
+          .leftWiden[Throwable]
+          .value
+          .rethrow
+          .flatMap { summary =>
+            f(summary, response.body)
+          }
       }
 
       for {
         request <- GET(uri(bucket, key))
-        result <- signedClient.fetch(request){ response => 
-          if(response.status.isSuccess) {
+        result <- signedClient.fetch(request) { response =>
+          if (response.status.isSuccess) {
             handleOk(response).map(_.asRight[Error])
           } else {
             response.as[Error].map(_.asLeft[A])
@@ -271,18 +274,18 @@ object S3 {
       } yield result
     }
 
-
     private implicit val objectSummaryDecoder: EntityDecoder[F, ObjectSummary] =
       EntityDecoder.decodeBy(MediaRange.`*/*`)(parseObjectSummary)
 
-    private def parseObjectSummary(response: Message[F]): DecodeResult[F, ObjectSummary] = {
+    private def parseObjectSummary(
+        response: Message[F]): DecodeResult[F, ObjectSummary] = {
       val etag: DecodeResult[F, Etag] = response.headers
-      .get(ETag)
-      .map(_.tag.tag)
-      .map(Etag.apply)
-      .map(DecodeResult.success[F, Etag](_))
-      .getOrElse(DecodeResult.failure[F, Etag](MalformedMessageBodyFailure(
-        "ETag header must be present on the response")))
+        .get(ETag)
+        .map(_.tag.tag)
+        .map(Etag.apply)
+        .map(DecodeResult.success[F, Etag](_))
+        .getOrElse(DecodeResult.failure[F, Etag](MalformedMessageBodyFailure(
+          "ETag header must be present on the response")))
 
       val metadata: Map[String, String] = response.headers.collect {
         case h if h.name.value.toLowerCase.startsWith(`X-Amx-Meta-`) =>
