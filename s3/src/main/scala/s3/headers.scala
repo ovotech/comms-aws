@@ -44,7 +44,7 @@ trait HttpCodecs {
 
 object headers extends HttpCodecs {
 
-  val `X-Amx-Meta-` = "x-amz-meta-"
+  val `X-Amz-Meta-` = "x-amz-meta-"
 
   object `X-Amz-Storage-Class` extends HeaderKey.Singleton {
     type HeaderT = `X-Amz-Storage-Class`

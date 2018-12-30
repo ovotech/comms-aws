@@ -249,7 +249,7 @@ object S3 {
               contentLength,
               `Content-Type`(content.mediaType, content.charset),
             ).put(metadata.map {
-              case (k, v) => Raw(s"${`X-Amx-Meta-`}$k".ci, v)
+              case (k, v) => Raw(s"${`X-Amz-Meta-`}$k".ci, v)
             }.toSeq: _*)
           }
 
@@ -290,8 +290,8 @@ object S3 {
           "ETag header must be present on the response")))
 
       val metadata: Map[String, String] = response.headers.collect {
-        case h if h.name.value.toLowerCase.startsWith(`X-Amx-Meta-`) =>
-          h.name.value.substring(`X-Amx-Meta-`.length) -> h.value
+        case h if h.name.value.toLowerCase.startsWith(`X-Amz-Meta-`) =>
+          h.name.value.substring(`X-Amz-Meta-`.length) -> h.value
       }.toMap
 
       etag.map { eTag =>
