@@ -11,6 +11,10 @@ target/
 .ensime
 .ensime_cache/
 
+# Metals
+.bloop/
+.metals/
+
 # Mac OSX
 .DS_Store
 
