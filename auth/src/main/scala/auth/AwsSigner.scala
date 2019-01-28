@@ -57,12 +57,16 @@ object AwsSigner {
   val DoubleSlashRegex: Regex = "/{2,}".r
   val MultipleSpaceRegex: Regex = "\\s+".r
   val EncodedSlashRegex: Regex = "%2F".r
+  val StarRegex: Regex = """\*""".r
 
   def encodeHex(bytes: Array[Byte]): String =
     DatatypeConverter.printHexBinary(bytes).toLowerCase
 
-  def uriEncode(str: String): String =
-    URLEncoder.encode(str, StandardCharsets.UTF_8.name)
+  def uriEncode(str: String): String = {
+    StarRegex.replaceAllIn(
+      URLEncoder.encode(str, StandardCharsets.UTF_8.name),
+      "%2A")
+  }
 
   def signWithKey(
       key: SecretKeySpec,
