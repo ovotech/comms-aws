@@ -264,7 +264,7 @@ object AwsSigner {
             }
 
             val encodedOnceSegments = normalizedPath
-              .split("/")
+              .split("/", -1)
               .map(uriEncode)
 
             // Normalize URI paths according to RFC 3986. Remove redundant and

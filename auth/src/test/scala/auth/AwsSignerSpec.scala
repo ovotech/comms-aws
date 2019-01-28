@@ -217,13 +217,15 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       val credentials = Credentials(
         AccessKeyId("AKIDEXAMPLE"),
         SecretAccessKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"))
+
       val dateTime = LocalDateTime
         .parse("20150830T123600Z", AwsSigner.dateTimeFormatter)
         .atZone(ZoneOffset.UTC)
 
-      val request = GET(Uri.uri("/")).map(
-        _.putHeaders(Host("example.amazonaws.com"))
-          .putHeaders(`X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))))
+      val request = GET(
+        Uri.uri("/"),
+        Host("example.amazonaws.com"),
+        `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime)))
 
       withSignRequest(
         request,
@@ -263,8 +265,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
           r.headers
             .get("Authorization".ci)
             .get
-            .value shouldBe expectedAuthorizationValue)
-      }.futureValue
+            .value)
+      }.futureValue shouldBe expectedAuthorizationValue
     }
 
     "sign a POST request with body" in {
