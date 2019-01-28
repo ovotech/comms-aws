@@ -270,8 +270,12 @@ object AwsSigner {
             // Normalize URI paths according to RFC 3986. Remove redundant and
             // relative path components. Each path segment must be URI-encoded
             // twice (except for Amazon S3 which only gets URI-encoded once).
+            //
+            // NOTE: This does not seems true at least not for ES
+            // TODO: Test against dynamodb
+            //
             val encodedTwiceSegments = if (service != Service.S3) {
-              encodedOnceSegments.map(uriEncode)
+              encodedOnceSegments
             } else {
               encodedOnceSegments
             }
