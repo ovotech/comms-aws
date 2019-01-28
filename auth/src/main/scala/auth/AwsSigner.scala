@@ -32,6 +32,8 @@ import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
+import org.slf4j.LoggerFactory
+
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import javax.xml.bind.DatatypeConverter
@@ -43,6 +45,8 @@ import org.http4s.headers.{Date, Authorization, Host}
 import org.http4s.syntax.all._
 
 object AwsSigner {
+
+  private val logger = LoggerFactory.getLogger(getClass)
 
   val dateFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyyMMdd")
@@ -255,10 +259,20 @@ object AwsSigner {
               absolutePath
             }
 
-            /* FIXME: This should split the path segments and encode each rather than
-             *        decode the slashes afterward
-             */
-            EncodedSlashRegex.replaceAllIn(uriEncode(normalizedPath), "/")
+            val encodedOnceSegments = normalizedPath
+              .split("/")
+              .map(uriEncode)
+
+            // Normalize URI paths according to RFC 3986. Remove redundant and
+            // relative path components. Each path segment must be URI-encoded
+            // twice (except for Amazon S3 which only gets URI-encoded once).
+            val encodedTwiceSegments = if (service != Service.S3) {
+              encodedOnceSegments.map(uriEncode)
+            } else {
+              encodedOnceSegments
+            }
+
+            encodedTwiceSegments.mkString("/")
           }
 
           val canonicalQueryString: String =
@@ -269,7 +283,12 @@ object AwsSigner {
               }
               .mkString("&")
 
-          s"$method\n$canonicalUri\n$canonicalQueryString\n$canonicalHeaders\n$signedHeaders\n$hashedPayload"
+          val result =
+            s"$method\n$canonicalUri\n$canonicalQueryString\n$canonicalHeaders\n$signedHeaders\n$hashedPayload"
+
+          logger.debug(s"canonicalRequest: $result")
+
+          result
         }
 
         val stringToSign = {
@@ -277,7 +296,11 @@ object AwsSigner {
           val hashedRequest =
             encodeHex(digest.digest(canonicalRequest.getBytes))
 
-          s"$algorithm\n$formattedDateTime\n$scope\n$hashedRequest"
+          val result = s"$algorithm\n$formattedDateTime\n$scope\n$hashedRequest"
+
+          logger.debug(s"stringToSign: $result")
+
+          result
         }
 
         val signingKey: SecretKeySpec =
