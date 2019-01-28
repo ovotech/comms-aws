@@ -6,6 +6,7 @@
         </File>
     </Appenders>
     <Loggers>
+        <logger name="com.ovoenergy.comms.aws.auth" level="DEBUG" />
         <Root level="INFO">
             <AppenderRef ref="File"/>
         </Root>
