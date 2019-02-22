@@ -80,7 +80,7 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
         for {
-          req <- GET(Uri.unsafeFromString("${esEndpoint}/audit-2018-09/_doc/foo"))
+          req <- GET(Uri.unsafeFromString(s"${esEndpoint}/audit-2018-09/_doc/foo"))
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -110,7 +110,7 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString("${esEndpoint}/audit-2018-09/_doc/_search"), `Content-Type`(MediaType.application.json))
+          req <- POST(body, Uri.unsafeFromString(s"${esEndpoint}/audit-2018-09/_doc/_search"), `Content-Type`(MediaType.application.json))
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -140,7 +140,7 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString("${esEndpoint}/audit-2018-09,audit-2018-10,audit-2018-11/_doc/_search?ignore_unavailable=true"), `Content-Type`(MediaType.application.json))
+          req <- POST(body, Uri.unsafeFromString(s"${esEndpoint}/audit-2018-09,audit-2018-10,audit-2018-11/_doc/_search?ignore_unavailable=true"), `Content-Type`(MediaType.application.json))
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -170,7 +170,7 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString("${esEndpoint}/audit-2018-09/_doc/_search?ignore_unavailable=true"), `Content-Type`(MediaType.application.json))
+          req <- POST(body, Uri.unsafeFromString(s"${esEndpoint}/audit-2018-09/_doc/_search?ignore_unavailable=true"), `Content-Type`(MediaType.application.json))
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -200,7 +200,7 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString("${esEndpoint}/audit-2018-09/_doc/_search?ignore_unavailable=true&refresh=true"), `Content-Type`(MediaType.application.json))
+          req <- POST(body, Uri.unsafeFromString(s"${esEndpoint}/audit-2018-09/_doc/_search?ignore_unavailable=true&refresh=true"), `Content-Type`(MediaType.application.json))
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -261,7 +261,7 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString("${esEndpoint}/audit-*/_doc/_search"), `Content-Type`(MediaType.application.json))
+          req <- POST(body, Uri.unsafeFromString(s"${esEndpoint}/audit-*/_doc/_search"), `Content-Type`(MediaType.application.json))
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
