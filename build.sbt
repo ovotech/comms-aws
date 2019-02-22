@@ -104,7 +104,7 @@ lazy val root = (project in file("."))
     )),
   )
 
-lazy val common = (project in file("common"))
+lazy val common = (project in file("modules/common"))
   .enablePlugins(AutomateHeaderPlugin)
   .configs(IntegrationTest)
   .settings(releaseOptions)
@@ -120,7 +120,7 @@ lazy val common = (project in file("common"))
   )
 
 
-lazy val auth = (project in file("auth"))
+lazy val auth = (project in file("modules/auth"))
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest")
   .configs(IntegrationTest)
@@ -136,7 +136,7 @@ lazy val auth = (project in file("auth"))
     )
   )
 
-lazy val s3 = (project in file("s3"))
+lazy val s3 = (project in file("modules/s3"))
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest", auth)
   .configs(IntegrationTest)
