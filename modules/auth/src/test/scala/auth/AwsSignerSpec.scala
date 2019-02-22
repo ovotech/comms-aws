@@ -33,7 +33,7 @@ import fs2.hash._
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.Method._
 import org.http4s.headers._
-import org.http4s.{Headers, HttpDate, MediaType, Request, Uri}
+import org.http4s.{HttpDate, MediaType, Request, Uri}
 import AwsSigner._
 import org.http4s.syntax.all._
 

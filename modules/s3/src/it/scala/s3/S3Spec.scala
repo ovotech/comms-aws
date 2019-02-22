@@ -1,25 +1,23 @@
 package com.ovoenergy.comms.aws
 package s3
 
-import model._
-import common.{IntegrationSpec, CredentialsProvider}
-import common.model._
-import java.nio.file.Files
 import java.util.UUID
+import java.util.concurrent.Executors
 import java.nio.charset.StandardCharsets.UTF_8
+import scala.concurrent.duration._
 
 import cats.data.EitherT
 import cats.implicits._
 import cats.effect.{IO, ContextShift}
+
 import fs2._
 import fs2.io._
-import org.http4s.client._
-import blaze.Http1Client
-import com.ovoenergy.comms.aws.s3
-import middleware.{ResponseLogger, RequestLogger}
 
-import scala.concurrent.duration._
-import java.util.concurrent.Executors
+import org.http4s.client._
+
+import model._
+import common.{IntegrationSpec, CredentialsProvider}
+import common.model._
 
 class S3Spec extends IntegrationSpec {
 
