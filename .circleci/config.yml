@@ -1,4 +1,4 @@
-version: 2
+version: 2.1
 
 defaults:
 - &defaults
@@ -34,10 +34,20 @@ defaults:
       git config user.email "hello.comms@ovoenergy.com"
 
 
+executors:
+  docker-executor:
+    docker:
+    - image: circleci/openjdk:8-jdk
+    environment:
+      JAVA_OPTS: "-Xmx1g -XX:MaxMetaspaceSize=1g -XX:MetaspaceSize=1g -XX:+CMSClassUnloadingEnabled"
+      DEFAULT_AWS_REGION: "eu-west-1"
+      AWS_REGION: "eu-west-1"
+     
+
 jobs:
   build:
 
-    <<: *defaults
+    executor: docker-executor
 
     steps:
 
@@ -70,13 +80,16 @@ jobs:
     - persist_to_workspace:
         root: .
         paths:
+        - project/target
+        - project/project/target
         - target
-        - common/target
         - auth/target
+        - common/target
+        - s3/target
 
   unit_test:
 
-    <<: *defaults
+    executor: docker-executor
 
     steps:
 
@@ -104,7 +117,7 @@ jobs:
 
   integration_test:
 
-    <<: *defaults
+    executor: docker-executor
 
     steps:
 
@@ -131,7 +144,7 @@ jobs:
 
   tag:
 
-    <<: *defaults
+    executor: docker-executor
 
     steps:
 
@@ -156,7 +169,7 @@ jobs:
 
   release:
 
-    <<: *defaults
+    executor: docker-executor
 
     steps:
 
@@ -172,8 +185,6 @@ jobs:
         no_output_timeout: 20m
 
 workflows:
-
-  version: 2
 
   build_test_release:
     jobs:
