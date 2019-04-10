@@ -47,6 +47,7 @@ object model {
   object Service {
     val S3: Service = Service("s3")
     val DynamoDb: Service = Service("dynamodb")
+    val TestService: Service = Service("service")
   }
 
   case class Region(value: String)
