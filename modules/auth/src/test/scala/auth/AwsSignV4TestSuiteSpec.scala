@@ -75,8 +75,8 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
         scala.io.Source.fromFile(new File(fn), "UTF-8")
       })
     def parseRequest(requestText: String): F[Either[String, Request[F]]] = {
-      val RequestRe = "(?s)(.+?)(\n\n(.+))?(?s)".r
-      val RequestLineRe = "(GET|POST) (\\S+) HTTP/1.1".r
+      val RequestRe = "(?s)(.+?)(\n\n(.+))?".r
+      val RequestLineRe = "(GET|POST) (.+) HTTP/1.1".r
       def headers(rows: List[String]) =
         rows.map(_.split(":", 2).toList).collect {
           case "X-Amz-Date" :: v :: Nil =>
