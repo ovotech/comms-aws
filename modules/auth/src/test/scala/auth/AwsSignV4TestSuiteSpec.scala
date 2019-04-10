@@ -72,7 +72,7 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
 
     def source(fn: String) =
       Resource.fromAutoCloseable(F.delay {
-        scala.io.Source.fromFile(new File(fn))
+        scala.io.Source.fromFile(new File(fn), "UTF-8")
       })
     def parseRequest(requestText: String): F[Either[String, Request[F]]] = {
       val RequestRe = "(?s)(.+?)(\n\n(.+))?(?s)".r
