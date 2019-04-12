@@ -27,7 +27,7 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
   def parseTestCaseDate(s: String) =
     java.time.ZonedDateTime.parse(s, DateFormatter)
 
-  val baseDir = "aws-sig-v4-test-suite"
+  val baseDir = "modules/auth/src/test/resources/aws-signv4-test-suite"
   require(
     new java.io.File(baseDir).exists,
     s"test suite dir '$baseDir' must exist")
