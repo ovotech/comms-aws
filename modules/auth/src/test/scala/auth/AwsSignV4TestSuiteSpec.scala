@@ -27,13 +27,20 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
   def parseTestCaseDate(s: String) =
     java.time.ZonedDateTime.parse(s, DateFormatter)
 
-  val baseDir = "modules/auth/src/test/resources/aws-signv4-test-suite"
-  require(
-    new java.io.File(baseDir).exists,
-    s"test suite dir '$baseDir' must exist")
+  val TestCaseFileBaseDir =
+    "modules/auth/src/test/resources/aws-signv4-test-suite"
+  val AuthorizationFileSuffix = ".authz"
+  val RequestFileSuffix = ".req"
+
+  val AwsRegion = Region.`us-east-1`
+  val AwsService = Service.TestService
+  val AwsCredentials = Credentials(
+    AccessKeyId("AKIDEXAMPLE"),
+    SecretAccessKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY")
+  )
 
   "AwsSigner" should {
-    getTestCaseFileBaseNames(baseDir) foreach { testFile =>
+    getTestCaseFileBaseNames(TestCaseFileBaseDir) foreach { testFile =>
       s"pass test case '${testFile.getName}'" in {
         (for {
           testCase <- EitherT(getTestCase[IO](testFile.getAbsolutePath))
@@ -59,8 +66,8 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
     }
 
     getRecursiveListOfFiles(new File(baseDir)).toList
-      .filter(f => f.getName.endsWith(".authz"))
-      .map(f => new File(f.getPath.replace(".authz", "")))
+      .filter(f => f.getName.endsWith(AuthorizationFileSuffix))
+      .map(f => new File(f.getPath.replace(AuthorizationFileSuffix, "")))
   }
 
   def getTestCase[F[_]](baseFileName: String)(implicit F: Sync[F]) = {
@@ -104,20 +111,19 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
     }
 
     (for {
-      request <- EitherT(
-        source(s"${baseFileName}.req").use(r => parseRequest(r.mkString)))
+      request <- EitherT(source(s"${baseFileName}${RequestFileSuffix}").use(r =>
+        parseRequest(r.mkString)))
       signature <- EitherT.right[String](
-        source(s"${baseFileName}.authz").use(_.mkString.pure[F]))
+        source(s"${baseFileName}${AuthorizationFileSuffix}").use(
+          _.mkString.pure[F]))
     } yield request -> signature).value
   }
 
   def withSignRequest[A](
       req: IO[Request[IO]],
-      region: Region = Region.`us-east-1`,
-      service: Service = Service.TestService,
-      credentials: Credentials = Credentials(
-        AccessKeyId("AKIDEXAMPLE"),
-        SecretAccessKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY")))(
+      region: Region = AwsRegion,
+      service: Service = AwsService,
+      credentials: Credentials = AwsCredentials)(
       f: Request[IO] => IO[A]): IO[A] = {
     for {
       request <- req
