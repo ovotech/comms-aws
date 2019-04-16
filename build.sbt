@@ -165,12 +165,14 @@ lazy val dynamodb = (project in file("modules/dynamodb"))
   .settings(
     name := "comms-aws-dynamodb",
   )
+  .settings(addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3"))
   .settings(inConfig(IntegrationTest)(Defaults.itSettings))
   .settings(automateHeaderSettings(IntegrationTest))
   .settings(
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-circe" % http4sVersion,
       "org.scodec" %% "scodec-bits" % scodecBitsVersion,
+      "org.typelevel" %% "cats-free" % catsVersion,
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
