@@ -41,7 +41,7 @@ lazy val releaseOptions = Seq(
 )
 
 lazy val root = (project in file("."))
-  .aggregate(auth, common, dynamodb, s3)
+  .aggregate(auth, common, s3)
   .configs(IntegrationTest)
   .settings(releaseOptions)
   .settings(
@@ -155,30 +155,5 @@ lazy val s3 = (project in file("modules/s3"))
       "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion,
       "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
       "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion % s"$Test,$IntegrationTest",
-    )
-  )
-
-lazy val dynamodb = (project in file("modules/dynamodb"))
-  .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest", auth)
-  .configs(IntegrationTest)
-  .settings(releaseOptions)
-  .settings(
-    name := "comms-aws-dynamodb",
-  )
-  .settings(addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3"))
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings))
-  .settings(automateHeaderSettings(IntegrationTest))
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-circe" % http4sVersion,
-      "org.scodec" %% "scodec-bits" % scodecBitsVersion,
-      "org.typelevel" %% "cats-free" % catsVersion,
-      "io.circe" %% "circe-core" % circeVersion,
-      "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-parser" % circeVersion,
-      "io.circe" %% "circe-literal" % circeVersion,
-      "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
-      "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion % s"$Test,$IntegrationTest",
     )
   )
