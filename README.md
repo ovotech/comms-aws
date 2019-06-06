@@ -7,7 +7,7 @@ We don't plan to make this a catch-all bucket to wrap all of the AWS SDK, but to
 
 The libraries that we plan to support in the near to medium future are:
 
-- A purely functional, non blocking, fs2-based DynamoDb client.
+- A purely functional, non blocking, fs2-based DynamoDb client. [dynosaur](https://github.com/ovotech/dynosaur)
 - An interface for AWS signing (unclear for now if it will be native or wrap the Java client)
 
 The libraries that we might support, or might stay as semi-private in comms-aws are:
