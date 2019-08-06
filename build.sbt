@@ -8,7 +8,7 @@ lazy val slf4jVersion = "1.7.26"
 lazy val log4jVersion = "2.11.2"
 lazy val http4sVersion = "0.20.0"
 lazy val commsDockerkitVersion = "1.8.6"
-lazy val scalaXmlVersion = "1.1.1"
+lazy val scalaXmlVersion = "1.2.0"
 lazy val circeVersion = "0.11.1"
 lazy val scodecBitsVersion = "1.1.9"
 
