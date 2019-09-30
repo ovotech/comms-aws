@@ -17,18 +17,20 @@
 package com.ovoenergy.comms.aws
 package s3
 
-import common.model._
-import cats.implicits._
-import cats.effect.{Async, ContextShift}
-import java.nio.file.{StandardOpenOption, Files, Path}
+import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{Executors, ThreadFactory}
 
-import fs2.{Stream, Chunk}
-import fs2.io._
-import org.http4s.{MediaType, Charset}
-
 import scala.concurrent.ExecutionContext
+
+import cats.effect.{Async, Blocker, ContextShift}
+import cats.implicits._
+
+import fs2.io._
+import fs2.{Chunk, Stream}
+import org.http4s.{Charset, MediaType}
+
+import common.model._
 
 object model {
 
@@ -165,16 +167,16 @@ object model {
                   "The file must be smaller than MaxDataLength bytes")),
                 contentLength.pure[F]
             ))
-        .map(
-          contentLength =>
-            ObjectContent(
-              readInputStream[F](
-                F.delay(Files.newInputStream(path, StandardOpenOption.READ)),
-                ChunkSize,
-                blockingEc
-              ),
-              contentLength,
-              chunked = contentLength > ChunkSize))
+        .map(contentLength =>
+          ObjectContent(
+            readInputStream[F](
+              F.delay(Files.newInputStream(path, StandardOpenOption.READ)),
+              ChunkSize,
+              Blocker.liftExecutionContext(blockingEc)
+            ),
+            contentLength,
+            chunked = contentLength > ChunkSize
+        ))
         .compile
         .last
         .map(_.toRight[Throwable](new IllegalStateException("Stream is empty")))
