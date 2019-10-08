@@ -19,7 +19,6 @@ package s3
 
 import cats.implicits._
 import cats.effect._
-import cats.effect.implicits._
 
 import java.nio.ByteBuffer
 
@@ -73,19 +72,17 @@ object S3 {
       region: Region,
       endpoint: Option[Uri] = None): S3[F] = new S3[F] with Http4sClientDsl[F] {
 
-    private val signer = AwsSigner[F](credentialsProvider, region, Service.S3)
-    private val signedClient = signer(client)
-
-    private val baseEndpoint = endpoint.getOrElse {
-      if (region == Region.`us-east-1`) {
+    val signer = AwsSigner[F](credentialsProvider, region, Service.S3)
+    val signedClient = signer(client)
+    val baseEndpoint = endpoint.getOrElse {
+      if (region == Region.`us-east-1`)
         Uri.uri("https://s3.amazonaws.com")
-      } else {
-        // TODO use the total version, we may need a S3 builder that returns F[S3[F]]
+      else
         Uri.unsafeFromString(s"https://s3-${region.value}.amazonaws.com")
-      }
+      // TODO use the total version, we may need a S3 builder that returns F[S3[F]]
     }
 
-    private def uri(bucket: Bucket, key: Key) = {
+    def uri(bucket: Bucket, key: Key) = {
       // TODO It only supports path style access ATM
       val bucketEndpoint = baseEndpoint / bucket.name
 
@@ -94,85 +91,20 @@ object S3 {
       }
     }
 
-    private implicit val errorEntityDecoder: EntityDecoder[F, Error] =
-      EntityDecoder[F, Elem].flatMapR { elem =>
-        val code = Option(elem \ "Code")
-          .filter(_.length == 1)
-          .map(_.text)
-          .map(Error.Code.apply)
-
-        val message = Option(elem \ "Message")
-          .filter(_.length == 1)
-          .map(_.text)
-
-        val requestId = Option(elem \ "RequestId")
-          .filter(_.length == 1)
-          .map(_.text)
-          .map(RequestId.apply)
-
-        (code, message, requestId)
-          .mapN { (code, message, requestId) =>
-            val bucketName = elem.child
-              .find(_.label == "BucketName")
-              .map(node => Bucket(node.text))
-            val key =
-              elem.child.find(_.label == "Key").map(node => Key(node.text))
-
-            Error(
-              code = code,
-              requestId = requestId,
-              message = message,
-              key = key,
-              bucketName = bucketName
-            )
-          }
-          .fold[DecodeResult[F, Error]](
-            DecodeResult.failure(InvalidMessageBodyFailure(
-              "Code, RequestId and Message XML elements are mandatory"))
-          )(error => DecodeResult.success(error))
-      }
-
-    private implicit val objectPutDecoder: EntityDecoder[F, ObjectPut] =
-      new EntityDecoder[F, ObjectPut] {
-
-        override def decode(
-            msg: Message[F],
-            strict: Boolean): DecodeResult[F, ObjectPut] = {
-          msg.headers
-            .get(ETag)
-            .map(_.tag.tag)
-            .map(Etag.apply)
-            .map(etag => ObjectPut(etag))
-            // TODO InvalidMessageBodyFailure is not correct here as there is no body
-            .fold[DecodeResult[F, ObjectPut]](
-              DecodeResult.failure(
-                InvalidMessageBodyFailure("The ETag header must be present"))
-            )(ok => DecodeResult.success(ok))
-        }
-
-        override val consumes: Set[MediaRange] =
-          MediaRange.standard.values.toSet
-      }
-
     def getObject(
         bucket: Bucket,
-        key: Key): Resource[F, Either[Error, Object[F]]] = {
-
-      def handleOk(response: Response[F]) =
-        parseObjectSummary(response).value.rethrow // TODO should lack of etag be an error here?
-          .map { summary =>
-            Object(summary, response.body)
-          }
-
+        key: Key): Resource[F, Either[Error, Object[F]]] =
       Resource.liftF(GET(uri(bucket, key))).flatMap { req =>
         signedClient.run(req).evalMap { response =>
-          if (response.status.isSuccess)
-            handleOk(response).map(_.asRight[Error])
-          else
+          if (response.status.isSuccess) {
+            parseObjectSummary(response).value.rethrow // TODO should lack of etag be an error here?
+              .map { summary =>
+                Object(summary, response.body).asRight[Error]
+              }
+          } else
             response.as[Error].map(_.asLeft[Object[F]])
         }
       }
-    }
 
     def headObject(
         bucket: Bucket,
@@ -211,16 +143,18 @@ object S3 {
           }
 
       val extractContent: F[Array[Byte]] =
-        (content.contentLength > ObjectContent.MaxDataLength)
-          .pure[F]
-          .ifM(
-            Sync[F].raiseError(new IllegalArgumentException(
-              s"The content is too long to be transmitted in a single chunk, max allowed content length: ${ObjectContent.MaxDataLength}")),
-            content.data.chunks.compile
-              .fold(ByteBuffer.allocate(content.contentLength.toInt))(
-                (buffer, chunk) => buffer put chunk.toByteBuffer)
-              .map(_.array())
-          )
+        if (content.contentLength > ObjectContent.MaxDataLength) {
+          Sync[F].raiseError {
+            val msg =
+              s"The content is too long to be transmitted in a single chunk, max allowed content length: ${ObjectContent.MaxDataLength}"
+            new IllegalArgumentException(msg)
+          }
+        } else {
+          content.data.chunks.compile
+            .fold(ByteBuffer.allocate(content.contentLength.toInt))(
+              (buffer, chunk) => buffer put chunk.toByteBuffer)
+            .map(_.array())
+        }
 
       for {
         hs <- initHeaders
@@ -233,16 +167,70 @@ object S3 {
       } yield result
     }
 
-    private implicit val objectSummaryDecoder: EntityDecoder[F, ObjectSummary] =
+    implicit def errorEntityDecoder: EntityDecoder[F, Error] =
+      EntityDecoder[F, Elem].flatMapR { elem =>
+        val code = Option(elem \ "Code")
+          .filter(_.length == 1)
+          .map(e => Error.Code(e.text))
+
+        val message = Option(elem \ "Message")
+          .filter(_.length == 1)
+          .map(_.text)
+
+        val requestId = Option(elem \ "RequestId")
+          .filter(_.length == 1)
+          .map(id => RequestId(id.text))
+
+        (code, message, requestId)
+          .mapN { (code, message, requestId) =>
+            val bucketName = elem.child
+              .find(_.label == "BucketName")
+              .map(node => Bucket(node.text))
+            val key =
+              elem.child.find(_.label == "Key").map(node => Key(node.text))
+
+            Error(
+              code = code,
+              requestId = requestId,
+              message = message,
+              key = key,
+              bucketName = bucketName
+            )
+          }
+          .fold[DecodeResult[F, Error]](
+            DecodeResult.failure(InvalidMessageBodyFailure(
+              "Code, RequestId and Message XML elements are mandatory"))
+          )(error => DecodeResult.success(error))
+      }
+
+    implicit def objectPutDecoder: EntityDecoder[F, ObjectPut] =
+      new EntityDecoder[F, ObjectPut] {
+
+        override def decode(
+            msg: Message[F],
+            strict: Boolean): DecodeResult[F, ObjectPut] = {
+          msg.headers
+            .get(ETag)
+            .map(t => ObjectPut(Etag(t.tag.tag)))
+            // TODO InvalidMessageBodyFailure is not correct here as there is no body
+            .fold[DecodeResult[F, ObjectPut]](
+              DecodeResult.failure(
+                InvalidMessageBodyFailure("The ETag header must be present"))
+            )(ok => DecodeResult.success(ok))
+        }
+
+        override val consumes: Set[MediaRange] =
+          MediaRange.standard.values.toSet
+      }
+
+    implicit def objectSummaryDecoder: EntityDecoder[F, ObjectSummary] =
       EntityDecoder.decodeBy(MediaRange.`*/*`)(parseObjectSummary)
 
-    private def parseObjectSummary(
+    def parseObjectSummary(
         response: Message[F]): DecodeResult[F, ObjectSummary] = {
       val etag: DecodeResult[F, Etag] = response.headers
         .get(ETag)
-        .map(_.tag.tag)
-        .map(Etag.apply)
-        .map(DecodeResult.success[F, Etag](_))
+        .map(t => DecodeResult.success[F, Etag](Etag(t.tag.tag)))
         .getOrElse(DecodeResult.failure[F, Etag](MalformedMessageBodyFailure(
           "ETag header must be present on the response")))
 

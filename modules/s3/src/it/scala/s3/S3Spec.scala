@@ -1,18 +1,17 @@
 package com.ovoenergy.comms.aws
 package s3
 
+import cats.implicits._
+import cats.effect._
+import fs2._
+import fs2.io._
+
 import java.nio.charset.StandardCharsets.UTF_8
 import java.util.UUID
 import java.util.concurrent.Executors
 
 import scala.concurrent.duration._
 
-import cats.data.EitherT
-import cats.effect.{Blocker, ContextShift, IO}
-import cats.implicits._
-
-import fs2._
-import fs2.io._
 
 import common.model._
 import common.{CredentialsProvider, IntegrationSpec}
@@ -141,11 +140,10 @@ class S3Spec extends IntegrationSpec {
 
         "return the object that can be consumed to a file" in {
           withS3 { s3 =>
-            EitherT(s3.getObject(existingBucket, existingKey))
-              .leftWiden[Throwable]
-              .value
+            s3.getObject(existingBucket, existingKey)
+              .map(_.leftWiden[Throwable])
               .rethrow
-              .flatMap(_.content.compile.toList)
+              .use(_.content.compile.toList)
           }.futureValue should not be (empty)
         }
 
@@ -325,16 +323,7 @@ class S3Spec extends IntegrationSpec {
 
   def checkGetObject[A](bucket: Bucket, key: Key)(
       f: Either[Error, Object[IO]] => A): A =
-    withS3 { s3 =>
-      Stream
-        .bracket(s3.getObject(bucket, key))(
-          objOrError =>
-            objOrError.fold(_ => IO.unit, _.content.compile.toList.attempt.void)
-        )
-        .map(x => f(x))
-        .compile
-        .lastOrError
-    }.futureValue
+    withS3 { _.getObject(bucket, key).use(x => IO(f(x))) }.futureValue
 
   def withS3[A](f: S3[IO] => IO[A]): IO[A] = {
     S3.resource(CredentialsProvider.default[IO], Region.`eu-west-1`).use(f)

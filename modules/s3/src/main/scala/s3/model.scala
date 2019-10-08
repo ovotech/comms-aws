@@ -134,28 +134,26 @@ object model {
     def fromPath[F[_]: Sync: ContextShift](
         path: Path,
         blocker: Blocker): F[ObjectContent[F]] =
-      Stream
-        .eval(Sync[F].delay(Files.size(path)))
-        .evalMap(
-          contentLength =>
-            if (contentLength > MaxDataLength)
-              Sync[F].raiseError[Long](new IllegalArgumentException(
-                "The file must be smaller than MaxDataLength bytes"))
-            else
-              contentLength.pure[F]
-        )
-        .map( // TODO merge the eval-evalMap-map, then remove the outer stream
-          contentLength =>
-            ObjectContent(
-              io.file.readAll[F](
-                path,
-                blocker,
-                ChunkSize
-              ),
-              contentLength,
-              chunked = contentLength > ChunkSize))
-        .compile
-        .lastOrError
+      Sync[F]
+        .delay(Files.size(path))
+        .flatTap { contentLength =>
+          Sync[F]
+            .raiseError[Long] {
+              new IllegalArgumentException(
+                "The file must be smaller than MaxDataLength bytes")
+            }
+            .whenA(contentLength > MaxDataLength)
+        }
+        .map { contentLength =>
+          ObjectContent(
+            io.file.readAll[F](
+              path,
+              blocker,
+              ChunkSize
+            ),
+            contentLength,
+            chunked = contentLength > ChunkSize)
+        }
   }
 
 }
