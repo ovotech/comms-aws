@@ -17,18 +17,12 @@
 package com.ovoenergy.comms.aws
 package s3
 
-import java.nio.file.{Files, Path, StandardOpenOption}
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.{Executors, ThreadFactory}
-
-import scala.concurrent.ExecutionContext
-
-import cats.effect.{Async, Blocker, ContextShift}
 import cats.implicits._
+import cats.effect._
+import fs2._
 
-import fs2.io._
-import fs2.{Chunk, Stream}
-import org.http4s.{Charset, MediaType}
+import java.nio.file.{Files, Path}
+import org.http4s.{MediaType, Charset}
 
 import common.model._
 
@@ -125,62 +119,43 @@ object model {
     val MaxDataLength: Long = Int.MaxValue.toLong
     val ChunkSize: Int = 64 * 1024
 
-    private val DefaultBlockingEc: ExecutionContext =
-      ExecutionContext.fromExecutorService(
-        Executors.newCachedThreadPool(
-          new ThreadFactory {
-            private val counter = new AtomicLong(0L)
-            def newThread(r: Runnable): Thread = {
-              val th = new Thread(r)
-              th.setName(s"object-content-blocking-${counter.getAndIncrement}")
-              th.setDaemon(true)
-              th
-            }
-          }
-        )
-      )
-
     def fromByteArray[F[_]](
         data: Array[Byte],
         mediaType: MediaType = MediaType.application.`octet-stream`,
         charset: Option[Charset] = None): ObjectContent[F] =
       ObjectContent[F](
-        data = Stream.chunk(Chunk.boxed[Byte](data)).covary[F],
+        data = Stream.chunk(Chunk.bytes(data)).covary[F],
         contentLength = data.length.toLong,
         mediaType = mediaType,
         charset = charset,
         chunked = false
       )
 
-    def fromPath[F[_]: ContextShift](
+    def fromPath[F[_]: Sync: ContextShift](
         path: Path,
-        blockingEc: ExecutionContext = DefaultBlockingEc)(
-        implicit F: Async[F]): F[ObjectContent[F]] =
+        blocker: Blocker): F[ObjectContent[F]] =
       Stream
-        .eval(F.delay(Files.size(path)))
+        .eval(Sync[F].delay(Files.size(path)))
         .evalMap(
           contentLength =>
-            (contentLength > MaxDataLength)
-              .pure[F]
-              .ifM(
-                F.raiseError[Long](new IllegalArgumentException(
-                  "The file must be smaller than MaxDataLength bytes")),
-                contentLength.pure[F]
-            ))
-        .map(contentLength =>
-          ObjectContent(
-            readInputStream[F](
-              F.delay(Files.newInputStream(path, StandardOpenOption.READ)),
-              ChunkSize,
-              Blocker.liftExecutionContext(blockingEc)
-            ),
-            contentLength,
-            chunked = contentLength > ChunkSize
-        ))
+            if (contentLength > MaxDataLength)
+              Sync[F].raiseError[Long](new IllegalArgumentException(
+                "The file must be smaller than MaxDataLength bytes"))
+            else
+              contentLength.pure[F]
+        )
+        .map( // TODO merge the eval-evalMap-map, then remove the outer stream
+          contentLength =>
+            ObjectContent(
+              io.file.readAll[F](
+                path,
+                blocker,
+                ChunkSize
+              ),
+              contentLength,
+              chunked = contentLength > ChunkSize))
         .compile
-        .last
-        .map(_.toRight[Throwable](new IllegalStateException("Stream is empty")))
-        .rethrow
+        .lastOrError
   }
 
 }

@@ -1,16 +1,16 @@
 lazy val fs2Version = "2.0.1"
-lazy val catsEffectVersion = "0.10.1"
-lazy val catsVersion = "1.6.0"
-lazy val awsSdkVersion = "1.11.641"
-lazy val scalatestVersion = "3.0.8"
-lazy val scalacheckVersion = "1.14.2"
-lazy val slf4jVersion = "1.7.28"
-lazy val log4jVersion = "2.12.1"
-lazy val http4sVersion = "0.20.11"
-lazy val commsDockerkitVersion = "1.9.5"
-lazy val scalaXmlVersion = "1.2.0"
-lazy val circeVersion = "0.11.1"
-lazy val scodecBitsVersion = "1.1.9"
+lazy val catsEffectVersion = "2.0.0"
+lazy val catsVersion = "2.0.0"
+lazy val awsSdkVersion = "1.11.534"
+lazy val scalatestVersion = "3.0.5"
+lazy val scalacheckVersion = "1.14.0"
+lazy val slf4jVersion = "1.7.26"
+lazy val log4jVersion = "2.11.2"
+lazy val http4sVersion = "0.21.0-M5"
+lazy val commsDockerkitVersion = "1.8.6"
+lazy val scalaXmlVersion = "1.1.1"
+lazy val circeVersion = "0.12.2"
+lazy val scodecBitsVersion = "1.1.12"
 
 
 lazy val IntegrationTest = config("it") extend Test
@@ -64,27 +64,6 @@ lazy val root = (project in file("."))
           "scm:git:git@github.com:ovotech/comms-aws.git")
       ),
       scalaVersion := "2.12.8",
-      scalacOptions ++= Seq(
-        "-deprecation",
-        "-encoding",
-        "UTF-8",
-        "-feature",
-        "-language:existentials",
-        "-language:higherKinds",
-        "-language:implicitConversions",
-        "-language:postfixOps",
-        "-language:experimental.macros",
-        "-unchecked",
-        "-Xlint",
-        "-Yno-adapted-args",
-        "-Ywarn-dead-code",
-        "-Ywarn-numeric-widen",
-        "-Ywarn-value-discard",
-        "-Xfuture",
-        "-Ywarn-unused-import",
-        "-Ywarn-unused",
-        "-Ypartial-unification"
-      ),
       resolvers ++= Seq(
         Resolver.bintrayRepo("ovotech", "maven")
       ),
@@ -113,6 +92,7 @@ lazy val common = (project in file("modules/common"))
   .settings(releaseOptions)
   .settings(
     name := "comms-aws-common",
+    scalacOptions -= "-Xfatal-warnings", // enable all options from sbt-tpolecat except fatal warnings
   )
   .settings(inConfig(IntegrationTest)(Defaults.itSettings))
   .settings(automateHeaderSettings(IntegrationTest))
@@ -130,6 +110,7 @@ lazy val auth = (project in file("modules/auth"))
   .settings(releaseOptions)
   .settings(
     name := "comms-aws-auth",
+    scalacOptions -= "-Xfatal-warnings", // enable all options from sbt-tpolecat except fatal warnings
   )
   .settings(inConfig(IntegrationTest)(Defaults.itSettings))
   .settings(automateHeaderSettings(IntegrationTest))
@@ -146,6 +127,7 @@ lazy val s3 = (project in file("modules/s3"))
   .settings(releaseOptions)
   .settings(
     name := "comms-aws-s3",
+    scalacOptions -= "-Xfatal-warnings", // enable all options from sbt-tpolecat except fatal warnings
   )
   .settings(inConfig(IntegrationTest)(Defaults.itSettings))
   .settings(automateHeaderSettings(IntegrationTest))
