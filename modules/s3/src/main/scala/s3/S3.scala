@@ -17,20 +17,15 @@
 package com.ovoenergy.comms.aws
 package s3
 
-import headers._
-import model._
-import common._
-import common.model._
 import cats.implicits._
-import cats.effect.{Sync, Resource, ConcurrentEffect, ExitCase}
+import cats.effect._
 import cats.effect.implicits._
+
 import java.nio.ByteBuffer
 
-import auth.AwsSigner
 import org.http4s.syntax.all._
 import org.http4s.{Service => _, _}
 import org.http4s.headers._
-import scalaxml._
 import Method._
 import client.Client
 import client.blaze.BlazeClientBuilder
@@ -38,16 +33,20 @@ import client.dsl.Http4sClientDsl
 import org.http4s.Header.Raw
 
 import scala.concurrent.ExecutionContext
+import scalaxml._
 import scala.xml.Elem
+
+import auth.AwsSigner
+import headers._
+import model._
+import common._
+import common.model._
 
 trait S3[F[_]] {
 
   def headObject(bucket: Bucket, key: Key): F[Either[Error, ObjectSummary]]
 
-  def getObject(bucket: Bucket, key: Key): F[Either[Error, Object[F]]]
-
-  def getObjectAs[A](bucket: Bucket, key: Key)(
-      f: (ObjectSummary, fs2.Stream[F, Byte]) => F[A]): F[Either[Error, A]]
+  def getObject(bucket: Bucket, key: Key): Resource[F, Either[Error, Object[F]]]
 
   def putObject(
       bucket: Bucket,
@@ -144,7 +143,7 @@ object S3 {
             .map(_.tag.tag)
             .map(Etag.apply)
             .map(etag => ObjectPut(etag))
-            // TODO InvalidMessageBodyFailure is not correct here as there si no body
+            // TODO InvalidMessageBodyFailure is not correct here as there is no body
             .fold[DecodeResult[F, ObjectPut]](
               DecodeResult.failure(
                 InvalidMessageBodyFailure("The ETag header must be present"))
@@ -155,67 +154,24 @@ object S3 {
           MediaRange.standard.values.toSet
       }
 
-    /**
-      * Return an S3 [[Object]] in the given bucket and key. If the object does not exist, it will return an [[Error]].
-      *
-      * BEWARE: that once the returned effect is resolved and the result is a [[Object]] you will to consume the body.
-      */
-    def getObject(bucket: Bucket, key: Key): F[Either[Error, Object[F]]] = {
+    def getObject(
+        bucket: Bucket,
+        key: Key): Resource[F, Either[Error, Object[F]]] = {
 
-      def parseDisposableResponse(
-          rr: Resource[F, Response[F]]): F[Either[Error, Object[F]]] = {
-        rr.allocated.bracketCase {
-          case (response, release) =>
-            if (response.status.isSuccess) {
-              parseObjectSummary(response)
-                .leftWiden[Throwable]
-                .value
-                .rethrow
-                .map { os =>
-                  Object(
-                    os,
-                    response.body.onFinalize(release)
-                  ).asRight[Error]
-                }
-            } else {
-              (response.as[Error].map(_.asLeft[Object[F]])).guarantee(release)
-            }
-        } {
-          case ((_, release), ExitCase.Canceled) => release
-          case _ => ().pure[F]
-        }
-      }
-
-      for {
-        request <- GET(uri(bucket, key))
-        result <- parseDisposableResponse(signedClient.run(request))
-      } yield result
-    }
-
-    def getObjectAs[A](bucket: Bucket, key: Key)(
-        f: (ObjectSummary, fs2.Stream[F, Byte]) => F[A])
-      : F[Either[Error, A]] = {
-
-      def handleOk(response: Response[F]): F[A] = {
-        parseObjectSummary(response)
-          .leftWiden[Throwable]
-          .value
-          .rethrow
-          .flatMap { summary =>
-            f(summary, response.body)
+      def handleOk(response: Response[F]) =
+        parseObjectSummary(response).value.rethrow // TODO should lack of etag be an error here?
+          .map { summary =>
+            Object(summary, response.body)
           }
-      }
 
-      for {
-        request <- GET(uri(bucket, key))
-        result <- signedClient.fetch(request) { response =>
-          if (response.status.isSuccess) {
+      Resource.liftF(GET(uri(bucket, key))).flatMap { req =>
+        signedClient.run(req).evalMap { response =>
+          if (response.status.isSuccess)
             handleOk(response).map(_.asRight[Error])
-          } else {
-            response.as[Error].map(_.asLeft[A])
-          }
+          else
+            response.as[Error].map(_.asLeft[Object[F]])
         }
-      } yield result
+      }
     }
 
     def headObject(
