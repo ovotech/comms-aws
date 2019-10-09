@@ -5,8 +5,7 @@ import common._
 import common.model._
 import cats.effect.{IO, ContextShift}
 import org.http4s.client.Client
-import org.http4s.client.blaze.Http1Client
-import cats.implicits._
+import org.http4s.client.blaze.BlazeClientBuilder
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.Method._
@@ -15,6 +14,7 @@ import org.http4s.{Uri, Status, MediaType}
 import org.http4s.client.middleware.{ResponseLogger, RequestLogger}
 
 import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.global
 
 class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
 
@@ -269,14 +269,9 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
   }
 
   def withHttpClient[A](f: Client[IO] => IO[A]): IO[A] = {
-    Http1Client
-      .stream[IO]()
-      .evalMap(f)
-      .compile
-      .last
-      .map(
-        _.toRight[Throwable](new IllegalStateException("The stream was empty")))
-      .rethrow
+    BlazeClientBuilder[IO](global)
+      .resource
+      .use(f)
   }
 
 }
