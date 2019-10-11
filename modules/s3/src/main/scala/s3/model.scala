@@ -31,9 +31,7 @@ object model {
   case class ObjectSummary(eTag: Etag, metadata: Map[String, String])
 
   /**
-    * The S3 Object. Running the content stream will dispose
-    * the underling connection
-    *
+    * The S3 Object.
     * @param content  The Stream[F, Byte] on the object content.
     * @tparam F The effect
     */
