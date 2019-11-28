@@ -1,3 +1,5 @@
+// Test mergify
+
 lazy val fs2Version = "2.0.1"
 lazy val catsEffectVersion = "2.0.0"
 lazy val catsVersion = "2.0.0"
