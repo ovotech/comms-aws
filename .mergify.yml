@@ -34,6 +34,8 @@ pull_request_rules:
       review:
         type: APPROVE
       merge:
+        strict: true
+        strict_method: rebase
         method: merge
       label:
         add: [minor-update]
@@ -49,6 +51,8 @@ pull_request_rules:
       review:
         type: APPROVE
       merge:
+        strict: true
+        strict_method: rebase
         method: merge
       label:
         add: [patch-update]
