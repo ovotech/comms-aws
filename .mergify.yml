@@ -34,7 +34,7 @@ pull_request_rules:
       review:
         type: APPROVE
       merge:
-        strict: true
+        strict: smart
         strict_method: rebase
         method: merge
       label:
@@ -51,7 +51,7 @@ pull_request_rules:
       review:
         type: APPROVE
       merge:
-        strict: true
+        strict: smart
         strict_method: rebase
         method: merge
       label:
