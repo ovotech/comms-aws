@@ -21,7 +21,7 @@ pull_request_rules:
       - body~=labels:.*semver-major
     actions:
       label:
-        add: [major-version-update]
+        add: [major-update]
 
   - name: automatically merge ovo-scala-steward's minor version PRs
     conditions:
@@ -36,7 +36,7 @@ pull_request_rules:
       merge:
         method: merge
       label:
-        add: [minor-version]
+        add: [minor-update]
 
   - name: automatically merge ovo-scala-steward's patch version PRs
     conditions:
@@ -51,7 +51,7 @@ pull_request_rules:
       merge:
         method: merge
       label:
-        add: [patch-version]
+        add: [patch-update]
 
   - name: delete head branch after merge
     conditions: []
