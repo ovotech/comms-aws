@@ -1,0 +1,63 @@
+pull_request_rules:
+
+  - name: label ovo-scala-steward's PRs
+    conditions:
+      - author=ovo-scala-steward
+    actions:
+      label:
+        add: [ovo-scala-steward]
+
+  - name: assign and label ovo-scala-steward's failed PRs
+    conditions:
+      - author=ovo-scala-steward
+      - status-failure~=ci/circleci
+    actions:
+      assign:
+        users: ["@ovotech/comms"]
+      label:
+        add: [failed-update]
+
+  - name: assign and label ovo-scala-steward's major version PRs
+    conditions:
+      - author=ovo-scala-steward
+      - body~=labels:.*semver-major
+    actions:
+      assign:
+        users: ["@ovotech/comms"]
+      label:
+        add: [major-version-update]
+
+  - name: automatically merge ovo-scala-steward's minor version PRs
+    conditions:
+      - author=ovo-scala-steward
+      - "status-success=ci/circleci: build"
+      - "status-success=ci/circleci: integration_test"
+      - "status-success=ci/circleci: unit_test"
+      - body~=labels:.*semver-minor
+    actions:
+      review:
+        type: APPROVE
+      merge:
+        method: merge
+      label:
+        add: [minor-version]
+
+  - name: automatically merge ovo-scala-steward's patch version PRs
+    conditions:
+      - author=ovo-scala-steward
+      - "status-success=ci/circleci: build"
+      - "status-success=ci/circleci: integration_test"
+      - "status-success=ci/circleci: unit_test"
+      - body~=labels:.*semver-patch
+    actions:
+      review:
+        type: APPROVE
+      merge:
+        method: merge
+      label:
+        add: [patch-version]
+
+  - name: delete head branch after merge
+    conditions: []
+    actions:
+      delete_head_branch: {}
