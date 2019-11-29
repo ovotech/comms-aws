@@ -7,23 +7,19 @@ pull_request_rules:
       label:
         add: [ovo-scala-steward]
 
-  - name: assign and label ovo-scala-steward's failed PRs
+  - name: label ovo-scala-steward's failed PRs
     conditions:
       - author=ovo-scala-steward
       - status-failure~=ci/circleci
     actions:
-      assign:
-        users: ["@ovotech/comms"]
       label:
         add: [failed-update]
 
-  - name: assign and label ovo-scala-steward's major version PRs
+  - name: label ovo-scala-steward's major version PRs
     conditions:
       - author=ovo-scala-steward
       - body~=labels:.*semver-major
     actions:
-      assign:
-        users: ["@ovotech/comms"]
       label:
         add: [major-version-update]
 
