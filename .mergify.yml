@@ -1,8 +1,8 @@
 pull_request_rules:
 
-  - name: assign and label scala-steward's failed PRs
+  - name: assign and label ovo-scala-steward's failed PRs
     conditions:
-      - author=scala-steward
+      - author=-ovo-scala-steward
       - status-failure~=ci/circleci
     actions:
       assign:
@@ -10,7 +10,7 @@ pull_request_rules:
       label:
         add: [ovo-scala-steward, failed-update]
 
-  - name: assign and label scala-steward's major version PRs
+  - name: assign and label ovo-scala-steward's major version PRs
     conditions:
       - author=ovo-scala-steward
       - body~=labels:.*semver-major
@@ -20,7 +20,7 @@ pull_request_rules:
       label:
         add: [ovo-scala-steward, major-version-update]
 
-  - name: automatically merge scala-steward's minor version PRs
+  - name: automatically merge ovo-scala-steward's minor version PRs
     conditions:
       - author=ovo-scala-steward
       - "status-success=ci/circleci: build"
@@ -33,7 +33,7 @@ pull_request_rules:
       label:
         add: [ovo-scala-steward, minor-version]
 
-  - name: automatically merge scala-steward's patch version PRs
+  - name: automatically merge ovo-scala-steward's patch version PRs
     conditions:
       - author=ovo-scala-steward
       - "status-success=ci/circleci: build"
