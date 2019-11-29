@@ -1,14 +1,21 @@
 pull_request_rules:
 
+  - name: label ovo-scala-steward's PRs
+    conditions:
+      - author=ovo-scala-steward
+    actions:
+      label:
+        add: [ovo-scala-steward]
+
   - name: assign and label ovo-scala-steward's failed PRs
     conditions:
-      - author=-ovo-scala-steward
+      - author=ovo-scala-steward
       - status-failure~=ci/circleci
     actions:
       assign:
         users: ["@ovotech/comms"]
       label:
-        add: [ovo-scala-steward, failed-update]
+        add: [failed-update]
 
   - name: assign and label ovo-scala-steward's major version PRs
     conditions:
@@ -18,7 +25,7 @@ pull_request_rules:
       assign:
         users: ["@ovotech/comms"]
       label:
-        add: [ovo-scala-steward, major-version-update]
+        add: [major-version-update]
 
   - name: automatically merge ovo-scala-steward's minor version PRs
     conditions:
@@ -28,10 +35,12 @@ pull_request_rules:
       - "status-success=ci/circleci: unit_test"
       - body~=labels:.*semver-minor
     actions:
+      review:
+        type: APPROVE
       merge:
         method: merge
       label:
-        add: [ovo-scala-steward, minor-version]
+        add: [minor-version]
 
   - name: automatically merge ovo-scala-steward's patch version PRs
     conditions:
@@ -41,10 +50,12 @@ pull_request_rules:
       - "status-success=ci/circleci: unit_test"
       - body~=labels:.*semver-patch
     actions:
+      review:
+        type: APPROVE
       merge:
         method: merge
       label:
-        add: [ovo-scala-steward, patch-version]
+        add: [patch-version]
 
   - name: delete head branch after merge
     conditions: []
