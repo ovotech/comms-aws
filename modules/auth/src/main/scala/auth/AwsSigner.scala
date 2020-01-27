@@ -319,8 +319,6 @@ object AwsSigner {
 
         val authorizationHeader = {
 
-          Authorization
-
           val authorizationHeaderValue =
             s"$algorithm Credential=${credentials.accessKeyId.value}/$scope, SignedHeaders=$signedHeaders, Signature=$signature"
 
@@ -328,9 +326,7 @@ object AwsSigner {
         }
 
         request.putHeaders(authorizationHeader)
-
     }
-
   }
 
   def apply[F[_]](

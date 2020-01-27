@@ -63,7 +63,7 @@ lazy val root = (project in file("."))
           url("https://github.com/ovotech/comms-aws"),
           "scm:git:git@github.com:ovotech/comms-aws.git")
       ),
-      scalaVersion := "2.12.8",
+      scalaVersion := "2.12.10",
       resolvers ++= Seq(
         Resolver.bintrayRepo("ovotech", "maven")
       ),
