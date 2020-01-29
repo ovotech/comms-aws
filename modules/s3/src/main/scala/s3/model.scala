@@ -28,7 +28,12 @@ import common.model._
 
 object model {
 
-  case class ObjectSummary(eTag: Etag, metadata: Map[String, String])
+  case class ObjectSummary(
+      eTag: Etag,
+      mediaType: Option[MediaType],
+      charset: Option[Charset],
+      metadata: Map[String, String]
+  )
 
   /**
     * The S3 Object.

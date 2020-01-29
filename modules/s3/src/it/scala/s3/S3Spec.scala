@@ -62,6 +62,14 @@ class S3Spec extends IntegrationSpec {
             os.metadata shouldBe Map("is-test" -> "true")
           }
         }
+
+        "return the object mediaType" in {
+          withS3 { s3 =>
+            s3.headObject(existingBucket, key)
+          }.futureValue.right.map { os =>
+            os.mediaType.isDefined shouldBe true
+          }
+        }
       }
 
       "the key does not exist" should {
@@ -135,6 +143,14 @@ class S3Spec extends IntegrationSpec {
           existingKey) { objOrError =>
           objOrError.right.map { obj =>
             obj.summary.metadata shouldBe Map("is-test" -> "true")
+          }
+        }
+
+        "return the object mediaType" in checkGetObject(
+          existingBucket,
+          existingKey) { objOrError =>
+          objOrError.right.map { obj =>
+            obj.summary.mediaType.isDefined shouldBe true
           }
         }
 
