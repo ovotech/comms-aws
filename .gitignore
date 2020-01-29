@@ -10,6 +10,7 @@ target/
 # metals
 .metals/
 .bloop/
+project/metals.sbt
 
 # Ensime
 .ensime

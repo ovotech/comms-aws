@@ -207,7 +207,7 @@ object S3 {
       new EntityDecoder[F, ObjectPut] {
 
         override def decode(
-            msg: Message[F],
+            msg: Media[F],
             strict: Boolean): DecodeResult[F, ObjectPut] = {
           msg.headers
             .get(ETag)
@@ -227,12 +227,17 @@ object S3 {
       EntityDecoder.decodeBy(MediaRange.`*/*`)(parseObjectSummary)
 
     def parseObjectSummary(
-        response: Message[F]): DecodeResult[F, ObjectSummary] = {
+        response: Media[F]): DecodeResult[F, ObjectSummary] = {
+
       val etag: DecodeResult[F, Etag] = response.headers
         .get(ETag)
         .map(t => DecodeResult.success[F, Etag](Etag(t.tag.tag)))
         .getOrElse(DecodeResult.failure[F, Etag](MalformedMessageBodyFailure(
           "ETag header must be present on the response")))
+
+      val mediaType = response.headers.get(`Content-Type`).map(_.mediaType)
+
+      val charset = response.headers.get(`Content-Type`).flatMap(_.charset)
 
       val metadata: Map[String, String] = response.headers.toList.collect {
         case h if h.name.value.toLowerCase.startsWith(`X-Amz-Meta-`) =>
@@ -240,7 +245,12 @@ object S3 {
       }.toMap
 
       etag.map { eTag =>
-        model.ObjectSummary(eTag, metadata)
+        model.ObjectSummary(
+          eTag,
+          mediaType,
+          charset,
+          metadata
+        )
       }
     }
 
