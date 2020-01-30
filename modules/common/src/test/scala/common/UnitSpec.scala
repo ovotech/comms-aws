@@ -17,11 +17,12 @@
 package com.ovoenergy.comms.aws
 package common
 
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 abstract class UnitSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
-    with PropertyChecks
+    with ScalaCheckPropertyChecks
     with IOFutures
