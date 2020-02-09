@@ -39,8 +39,8 @@ object CredentialsProvider {
 
   // TODO refresh creds automagically
   def fromAwsCredentialProvider[F[_]](
-      awsCredentialsProvider: AWSCredentialsProvider)(
-      implicit F: Sync[F]): CredentialsProvider[F] =
+      awsCredentialsProvider: AWSCredentialsProvider
+  )(implicit F: Sync[F]): CredentialsProvider[F] =
     new CredentialsProvider[F] {
       override def get: F[Credentials] =
         F.delay(awsCredentialsProvider.getCredentials).map {
@@ -48,12 +48,14 @@ object CredentialsProvider {
             Credentials(
               AccessKeyId(creds.getAWSAccessKeyId),
               SecretAccessKey(creds.getAWSSecretKey),
-              SessionToken(creds.getSessionToken).some)
+              SessionToken(creds.getSessionToken).some
+            )
           case creds =>
             Credentials(
               AccessKeyId(creds.getAWSAccessKeyId),
               SecretAccessKey(creds.getAWSSecretKey),
-              None)
+              None
+            )
         }
     }
 
@@ -75,13 +77,13 @@ object CredentialsProvider {
       sys.env
         .get(secretKeyEnv)
         .orElse(sys.env.get(secretAccessKey))
-        .map(SecretAccessKey.apply))
-      .mapN { (accessKeyId, secretAccessKey) =>
-        val sessionToken = sys.env
-          .get(sessionTokenEnv)
-          .map(SessionToken.apply)
-        Credentials(accessKeyId, secretAccessKey, sessionToken)
-      }
+        .map(SecretAccessKey.apply)
+    ).mapN { (accessKeyId, secretAccessKey) =>
+      val sessionToken = sys.env
+        .get(sessionTokenEnv)
+        .map(SessionToken.apply)
+      Credentials(accessKeyId, secretAccessKey, sessionToken)
+    }
   }
 
   def resolveFromSystemProperties: Option[Credentials] = {
@@ -92,14 +94,14 @@ object CredentialsProvider {
 
     (
       sys.props.get(accessKeyIdProperty).map(AccessKeyId.apply),
-      sys.props.get(secretKeyProperty).map(SecretAccessKey.apply))
-      .mapN { (accessKeyId, secretAccessKey) =>
-        val sessionToken = sys.props
-          .get(sessionTokenProperty)
-          .map(SessionToken.apply)
+      sys.props.get(secretKeyProperty).map(SecretAccessKey.apply)
+    ).mapN { (accessKeyId, secretAccessKey) =>
+      val sessionToken = sys.props
+        .get(sessionTokenProperty)
+        .map(SessionToken.apply)
 
-        Credentials(accessKeyId, secretAccessKey, sessionToken)
-      }
+      Credentials(accessKeyId, secretAccessKey, sessionToken)
+    }
   }
 
 }

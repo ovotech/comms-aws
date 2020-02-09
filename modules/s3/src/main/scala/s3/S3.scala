@@ -51,7 +51,8 @@ trait S3[F[_]] {
       bucket: Bucket,
       key: Key,
       content: ObjectContent[F],
-      metadata: Map[String, String] = Map.empty): F[Either[Error, ObjectPut]]
+      metadata: Map[String, String] = Map.empty
+  ): F[Either[Error, ObjectPut]]
 
 }
 
@@ -61,16 +62,19 @@ object S3 {
       credentialsProvider: CredentialsProvider[F],
       region: Region,
       endpoint: Option[Uri] = None,
-      ec: ExecutionContext = ExecutionContext.global): Resource[F, S3[F]] = {
+      ec: ExecutionContext = ExecutionContext.global
+  ): Resource[F, S3[F]] = {
     BlazeClientBuilder[F](ec).resource.map(client =>
-      S3.apply(client, credentialsProvider, region, endpoint))
+      S3.apply(client, credentialsProvider, region, endpoint)
+    )
   }
 
   def apply[F[_]: Sync](
       client: Client[F],
       credentialsProvider: CredentialsProvider[F],
       region: Region,
-      endpoint: Option[Uri] = None): S3[F] = new S3[F] with Http4sClientDsl[F] {
+      endpoint: Option[Uri] = None
+  ): S3[F] = new S3[F] with Http4sClientDsl[F] {
 
     val signer = AwsSigner[F](credentialsProvider, region, Service.S3)
     val signedClient = signer(client)
@@ -93,7 +97,8 @@ object S3 {
 
     def getObject(
         bucket: Bucket,
-        key: Key): Resource[F, Either[Error, Object[F]]] =
+        key: Key
+    ): Resource[F, Either[Error, Object[F]]] =
       Resource.liftF(GET(uri(bucket, key))).flatMap { req =>
         signedClient.run(req).evalMap { response =>
           if (response.status.isSuccess) {
@@ -108,7 +113,8 @@ object S3 {
 
     def headObject(
         bucket: Bucket,
-        key: Key): F[Either[Error, ObjectSummary]] = {
+        key: Key
+    ): F[Either[Error, ObjectSummary]] = {
 
       for {
         request <- GET(uri(bucket, key))
@@ -125,8 +131,8 @@ object S3 {
         bucket: Bucket,
         key: Key,
         content: ObjectContent[F],
-        metadata: Map[String, String] = Map.empty)
-      : F[Either[Error, ObjectPut]] = {
+        metadata: Map[String, String] = Map.empty
+    ): F[Either[Error, ObjectPut]] = {
 
       def initHeaders: F[Headers] =
         Sync[F]
@@ -135,7 +141,7 @@ object S3 {
             Headers
               .of(
                 contentLength,
-                `Content-Type`(content.mediaType, content.charset),
+                `Content-Type`(content.mediaType, content.charset)
               )
               .put(metadata.map {
                 case (k, v) => Raw(s"${`X-Amz-Meta-`}$k".ci, v)
@@ -152,7 +158,8 @@ object S3 {
         } else {
           content.data.chunks.compile
             .fold(ByteBuffer.allocate(content.contentLength.toInt))(
-              (buffer, chunk) => buffer put chunk.toByteBuffer)
+              (buffer, chunk) => buffer put chunk.toByteBuffer
+            )
             .map(_.array())
         }
 
@@ -198,8 +205,11 @@ object S3 {
             )
           }
           .fold[DecodeResult[F, Error]](
-            DecodeResult.failure(InvalidMessageBodyFailure(
-              "Code, RequestId and Message XML elements are mandatory"))
+            DecodeResult.failure(
+              InvalidMessageBodyFailure(
+                "Code, RequestId and Message XML elements are mandatory"
+              )
+            )
           )(error => DecodeResult.success(error))
       }
 
@@ -208,14 +218,16 @@ object S3 {
 
         override def decode(
             msg: Media[F],
-            strict: Boolean): DecodeResult[F, ObjectPut] = {
+            strict: Boolean
+        ): DecodeResult[F, ObjectPut] = {
           msg.headers
             .get(ETag)
             .map(t => ObjectPut(Etag(t.tag.tag)))
             // TODO InvalidMessageBodyFailure is not correct here as there is no body
             .fold[DecodeResult[F, ObjectPut]](
               DecodeResult.failure(
-                InvalidMessageBodyFailure("The ETag header must be present"))
+                InvalidMessageBodyFailure("The ETag header must be present")
+              )
             )(ok => DecodeResult.success(ok))
         }
 
@@ -227,13 +239,19 @@ object S3 {
       EntityDecoder.decodeBy(MediaRange.`*/*`)(parseObjectSummary)
 
     def parseObjectSummary(
-        response: Media[F]): DecodeResult[F, ObjectSummary] = {
+        response: Media[F]
+    ): DecodeResult[F, ObjectSummary] = {
 
       val etag: DecodeResult[F, Etag] = response.headers
         .get(ETag)
         .map(t => DecodeResult.success[F, Etag](Etag(t.tag.tag)))
-        .getOrElse(DecodeResult.failure[F, Etag](MalformedMessageBodyFailure(
-          "ETag header must be present on the response")))
+        .getOrElse(
+          DecodeResult.failure[F, Etag](
+            MalformedMessageBodyFailure(
+              "ETag header must be present on the response"
+            )
+          )
+        )
 
       val mediaType = response.headers.get(`Content-Type`).map(_.mediaType)
 

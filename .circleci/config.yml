@@ -79,8 +79,8 @@ jobs:
     - store_sbt_cache
 
     - run: sbt headerCheck
-    - run: sbt scalafmtCheck
-    - run: bt test:scalafmtCheck
+    - run: sbt scalafmtCheckAll
+    # TODO Make sure scalafmtCheckAll checks it as well
     - run: sbt it:scalafmtCheck
     
     - run: sbt +test:compile

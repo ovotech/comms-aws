@@ -47,8 +47,8 @@ object model {
       requestId: RequestId,
       message: String,
       key: Option[Key] = None,
-      bucketName: Option[Bucket])
-      extends Exception(message)
+      bucketName: Option[Bucket]
+  ) extends Exception(message)
 
   object Error {
 
@@ -97,7 +97,9 @@ object model {
       fromString(string)
         .getOrElse(
           throw new IllegalArgumentException(
-            s"string is not a valid storage class, valid values are: $values"))
+            s"string is not a valid storage class, valid values are: $values"
+          )
+        )
 
   }
 
@@ -115,7 +117,8 @@ object model {
       contentLength: Long,
       chunked: Boolean,
       mediaType: MediaType = MediaType.application.`octet-stream`,
-      charset: Option[Charset] = None)
+      charset: Option[Charset] = None
+  )
 
   object ObjectContent {
 
@@ -125,7 +128,8 @@ object model {
     def fromByteArray[F[_]](
         data: Array[Byte],
         mediaType: MediaType = MediaType.application.`octet-stream`,
-        charset: Option[Charset] = None): ObjectContent[F] =
+        charset: Option[Charset] = None
+    ): ObjectContent[F] =
       ObjectContent[F](
         data = Stream.chunk(Chunk.bytes(data)).covary[F],
         contentLength = data.length.toLong,
@@ -136,14 +140,16 @@ object model {
 
     def fromPath[F[_]: Sync: ContextShift](
         path: Path,
-        blocker: Blocker): F[ObjectContent[F]] =
+        blocker: Blocker
+    ): F[ObjectContent[F]] =
       Sync[F]
         .delay(Files.size(path))
         .flatTap { contentLength =>
           Sync[F]
             .raiseError[Long] {
               new IllegalArgumentException(
-                "The file must be smaller than MaxDataLength bytes")
+                "The file must be smaller than MaxDataLength bytes"
+              )
             }
             .whenA(contentLength > MaxDataLength)
         }
@@ -155,7 +161,8 @@ object model {
               ChunkSize
             ),
             contentLength,
-            chunked = contentLength > ChunkSize)
+            chunked = contentLength > ChunkSize
+          )
         }
   }
 

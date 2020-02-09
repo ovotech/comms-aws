@@ -94,7 +94,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
           withFixedRequest(
             GET(Uri.uri("http://example.com"))
               .map(_.removeHeader(Date).removeHeader(`X-Amz-Date`)),
-            now) { r =>
+            now
+          ) { r =>
             IO {
               r.headers.get(Date) shouldBe None
               r.headers.get(`X-Amz-Date`) shouldBe Some(expectedXAmzDate)
@@ -107,11 +108,13 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         "not add X-Amz-Date" in {
           val now = Instant.now()
           val expectedXAmzDate = `X-Amz-Date`(
-            HttpDate.unsafeFromInstant(now.minus(5, ChronoUnit.MINUTES)))
+            HttpDate.unsafeFromInstant(now.minus(5, ChronoUnit.MINUTES))
+          )
           withFixedRequest(
             GET(Uri.uri("http://example.com"))
               .map(_.removeHeader(Date).putHeaders(expectedXAmzDate)),
-            now) { r =>
+            now
+          ) { r =>
             IO {
               r.headers.get(Date) shouldBe None
               r.headers.get(`X-Amz-Date`) shouldBe Some(expectedXAmzDate)
@@ -129,7 +132,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         withFixedRequest(
           GET(Uri.uri("http://example.com"))
             .map(_.removeHeader(`X-Amz-Date`).putHeaders(expectedDate)),
-          now) { r =>
+          now
+        ) { r =>
           IO {
             r.headers.get(`X-Amz-Date`) shouldBe None
             r.headers.get(Date) shouldBe Some(expectedDate)
@@ -143,8 +147,10 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       "the uri is absolute" should {
         "not add Host header" in {
           val expectedHost = Host("foo", 5555)
-          withFixedRequest(GET(Uri.uri("http://example.com"))
-            .map(_.putHeaders(expectedHost))) { r =>
+          withFixedRequest(
+            GET(Uri.uri("http://example.com"))
+              .map(_.putHeaders(expectedHost))
+          ) { r =>
             IO {
               r.headers.get(Host) shouldBe Some(expectedHost)
             }
@@ -168,14 +174,17 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         val credentials = Credentials(
           AccessKeyId("FOO"),
           SecretAccessKey("BAR"),
-          sessionToken.some)
+          sessionToken.some
+        )
         val expectedXAmzSecurityToken = `X-Amz-Security-Token`(sessionToken)
         withFixedRequest(
           GET(Uri.uri("http://example.com")),
-          credentials = credentials) { r =>
+          credentials = credentials
+        ) { r =>
           IO {
             r.headers.get(`X-Amz-Security-Token`) shouldBe Some(
-              expectedXAmzSecurityToken)
+              expectedXAmzSecurityToken
+            )
           }
         }.futureValue
       }
@@ -188,7 +197,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
           Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR"))
         withFixedRequest(
           GET(Uri.uri("http://example.com")),
-          credentials = credentials) { r =>
+          credentials = credentials
+        ) { r =>
           IO {
             r.headers.get(`X-Amz-Security-Token`) shouldBe None
           }
@@ -202,7 +212,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       "X-Amz-Date is not defined" should {
         "return a failed effect" in {
           withSignRequest(GET(Uri.uri("http://example.com")))(_ => IO.unit).attempt.futureValue shouldBe a[
-            Left[_, _]]
+            Left[_, _]
+          ]
         }
       }
     }
@@ -216,7 +227,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
 
       val credentials = Credentials(
         AccessKeyId("AKIDEXAMPLE"),
-        SecretAccessKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"))
+        SecretAccessKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY")
+      )
 
       val dateTime = LocalDateTime
         .parse("20150830T123600Z", AwsSigner.dateTimeFormatter)
@@ -225,18 +237,21 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       val request = GET(
         Uri.uri("/"),
         Host("example.amazonaws.com"),
-        `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime)))
+        `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
+      )
 
       withSignRequest(
         request,
         credentials = credentials,
         region = Region.`us-east-1`,
-        service = Service("service")) { r =>
+        service = Service("service")
+      ) { r =>
         IO(
           r.headers
             .get("Authorization".ci)
             .get
-            .value shouldBe expectedAuthorizationValue)
+            .value shouldBe expectedAuthorizationValue
+        )
       }.futureValue
     }
 
@@ -246,7 +261,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=host;x-amz-date, Signature=5da7c1a2acd57cee7505fc6676e4e544621c30862966e37dddb68e92efbe5d6b"
       val credentials = Credentials(
         AccessKeyId("AKIDEXAMPLE"),
-        SecretAccessKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"))
+        SecretAccessKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY")
+      )
       val dateTime = LocalDateTime
         .parse("20150830T123600Z", AwsSigner.dateTimeFormatter)
         .atZone(ZoneOffset.UTC)
@@ -254,18 +270,21 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       val request = POST(
         Uri.uri("/"),
         Host("example.amazonaws.com"),
-        `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime)))
+        `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
+      )
 
       withSignRequest(
         request,
         credentials = credentials,
         region = Region.`us-east-1`,
-        service = Service("service")) { r =>
+        service = Service("service")
+      ) { r =>
         IO(
           r.headers
             .get("Authorization".ci)
             .get
-            .value)
+            .value
+        )
       }.futureValue shouldBe expectedAuthorizationValue
     }
 
@@ -275,7 +294,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=content-type;host;x-amz-date, Signature=ff11897932ad3f4e8b18135d722051e5ac45fc38421b1da7b9d196a0fe09473a"
       val credentials = Credentials(
         AccessKeyId("AKIDEXAMPLE"),
-        SecretAccessKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"))
+        SecretAccessKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY")
+      )
       val dateTime = LocalDateTime
         .parse("20150830T123600Z", AwsSigner.dateTimeFormatter)
         .atZone(ZoneOffset.UTC)
@@ -294,12 +314,14 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         request,
         credentials = credentials,
         region = Region.`us-east-1`,
-        service = Service("service")) { r =>
+        service = Service("service")
+      ) { r =>
         IO(
           r.headers
             .get("Authorization".ci)
             .get
-            .value shouldBe expectedAuthorizationValue)
+            .value shouldBe expectedAuthorizationValue
+        )
       }.futureValue
     }
   }
@@ -308,8 +330,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       req: IO[Request[IO]],
       now: Instant = Instant.now(),
       credentials: Credentials =
-        Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR")))(
-      f: Request[IO] => IO[A]): IO[A] = {
+        Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR"))
+  )(f: Request[IO] => IO[A]): IO[A] = {
     for {
       request <- req
       fixedRequest <- AwsSigner.fixRequest(request, credentials, now)
@@ -322,15 +344,16 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       region: Region = Region.`eu-west-1`,
       service: Service = Service.DynamoDb,
       credentials: Credentials =
-        Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR")))(
-      f: Request[IO] => IO[A]): IO[A] = {
+        Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR"))
+  )(f: Request[IO] => IO[A]): IO[A] = {
     for {
       request <- req
       signedRequest <- AwsSigner.signRequest(
         request,
         credentials,
         region,
-        service)
+        service
+      )
       result <- f(signedRequest)
     } yield result
   }

@@ -70,7 +70,7 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
     "get-slashes",
     "get-relative",
     "get-vanilla-query-unreserved",
-    "get-vanilla-query-order-key",
+    "get-vanilla-query-order-key"
   )
 
   "AwsSigner" should {
@@ -136,9 +136,11 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
               val request = Request[F](
                 method = method,
                 uri = Uri.unsafeFromString(uri),
-                headers = Headers(headers(headersRows)))
+                headers = Headers(headers(headersRows))
+              )
               Right(
-                Option(body).map(b => request.withEntity(b)).getOrElse(request))
+                Option(body).map(b => request.withEntity(b)).getOrElse(request)
+              )
             case l => Left(s"unexpected request line syntax: $l")
           }
         case l => Left(s"unexpected request syntax: '$l'")
@@ -146,11 +148,15 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
     }
 
     (for {
-      request <- EitherT(source(s"${baseFileName}${RequestFileSuffix}").use(r =>
-        parseRequest(r.mkString)))
+      request <- EitherT(
+        source(s"${baseFileName}${RequestFileSuffix}").use(r =>
+          parseRequest(r.mkString)
+        )
+      )
       signature <- EitherT.right[String](
-        source(s"${baseFileName}${AuthorizationFileSuffix}").use(
-          _.mkString.pure[F]))
+        source(s"${baseFileName}${AuthorizationFileSuffix}")
+          .use(_.mkString.pure[F])
+      )
     } yield request -> signature).value
   }
 
@@ -158,15 +164,16 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
       req: IO[Request[IO]],
       region: Region = AwsRegion,
       service: Service = AwsService,
-      credentials: Credentials = AwsCredentials)(
-      f: Request[IO] => IO[A]): IO[A] = {
+      credentials: Credentials = AwsCredentials
+  )(f: Request[IO] => IO[A]): IO[A] = {
     for {
       request <- req
       signedRequest <- AwsSigner.signRequest(
         request,
         credentials,
         region,
-        service)
+        service
+      )
       result <- f(signedRequest)
     } yield result
   }

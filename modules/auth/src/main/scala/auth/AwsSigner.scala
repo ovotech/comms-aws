@@ -65,13 +65,15 @@ object AwsSigner {
   def uriEncode(str: String): String = {
     StarRegex.replaceAllIn(
       URLEncoder.encode(str, StandardCharsets.UTF_8.name),
-      "%2A")
+      "%2A"
+    )
   }
 
   def signWithKey(
       key: SecretKeySpec,
       bytes: Array[Byte],
-      algorithm: String): Array[Byte] = {
+      algorithm: String
+  ): Array[Byte] = {
     val mac = Mac.getInstance(algorithm)
     mac.init(key)
     mac.doFinal(bytes)
@@ -82,16 +84,19 @@ object AwsSigner {
       credentials: Credentials,
       region: Region,
       service: Service,
-      algorithm: String): SecretKeySpec = {
+      algorithm: String
+  ): SecretKeySpec = {
 
     def wrapSignature(
         signature: SecretKeySpec,
-        bytes: Array[Byte]): SecretKeySpec =
+        bytes: Array[Byte]
+    ): SecretKeySpec =
       new SecretKeySpec(signWithKey(signature, bytes, algorithm), algorithm)
 
     val rawKey = new SecretKeySpec(
       s"AWS4${credentials.secretAccessKey.value}".getBytes,
-      algorithm)
+      algorithm
+    )
 
     val dateKey: SecretKeySpec =
       wrapSignature(rawKey, formattedDate.getBytes)
@@ -128,7 +133,8 @@ object AwsSigner {
   def fixRequest[F[_]](
       request: Request[F],
       credentials: Credentials,
-      fallbackRequestDateTime: Instant)(implicit F: Sync[F]): F[Request[F]] = {
+      fallbackRequestDateTime: Instant
+  )(implicit F: Sync[F]): F[Request[F]] = {
 
     val requestDateTime: Instant =
       extractXAmzDateOrDate(request).getOrElse(fallbackRequestDateTime)
@@ -139,7 +145,9 @@ object AwsSigner {
         F.fromOption(
             uri.host,
             new IllegalArgumentException(
-              "The request URI must be absolute or the request must have the Host header"))
+              "The request URI must be absolute or the request must have the Host header"
+            )
+          )
           .map(host => r.putHeaders(Host(host.value, r.uri.port)))
       } else {
         r.pure[F]
@@ -155,7 +163,8 @@ object AwsSigner {
     def addXAmzSecurityTokenHeader(r: Request[F]): F[Request[F]] =
       credentials.sessionToken
         .fold(r)(sessionToken =>
-          r.putHeaders(`X-Amz-Security-Token`(sessionToken)))
+          r.putHeaders(`X-Amz-Security-Token`(sessionToken))
+        )
         .pure[F]
 
     def addHashedBody(r: Request[F]): F[Request[F]] =
@@ -190,7 +199,8 @@ object AwsSigner {
       request: Request[F],
       credentials: Credentials,
       region: Region,
-      service: Service): F[Request[F]] = {
+      service: Service
+  ): F[Request[F]] = {
 
     // FIXME Algorithm could be customized depending on the service
     val algorithm: String = "AWS4-HMAC-SHA256"
@@ -207,9 +217,12 @@ object AwsSigner {
 
     val requestDateTimeF = extractXAmzDateOrDate(request)
       .fold(
-        Sync[F].raiseError[Instant](new IllegalArgumentException(
-          "The given request does not have Date or X-Amz-Date header")))(
-        _.pure[F])
+        Sync[F].raiseError[Instant](
+          new IllegalArgumentException(
+            "The given request does not have Date or X-Amz-Date header"
+          )
+        )
+      )(_.pure[F])
 
     (hashedPayloadF, requestDateTimeF).mapN {
       (hashedPayload, requestDateTime) =>
@@ -228,8 +241,10 @@ object AwsSigner {
         val (canonicalHeaders, signedHeaders) = {
 
           val grouped = request.headers.toList.groupBy(_.name)
-          val combined = grouped.mapValues(_.map(h =>
-            MultipleSpaceRegex.replaceAllIn(h.value, " ").trim).mkString(","))
+          val combined = grouped.mapValues(
+            _.map(h => MultipleSpaceRegex.replaceAllIn(h.value, " ").trim)
+              .mkString(",")
+          )
 
           val canonical = combined.toSeq
             .sortBy(_._1)
@@ -315,7 +330,8 @@ object AwsSigner {
           key(formattedDate, credentials, region, service, signingAlgorithm)
 
         val signature: String = encodeHex(
-          signWithKey(signingKey, stringToSign.getBytes, signingAlgorithm))
+          signWithKey(signingKey, stringToSign.getBytes, signingAlgorithm)
+        )
 
         val authorizationHeader = {
 
@@ -332,7 +348,8 @@ object AwsSigner {
   def apply[F[_]](
       credentialsProvider: CredentialsProvider[F],
       region: Region,
-      service: Service): AwsSigner[F] =
+      service: Service
+  ): AwsSigner[F] =
     new AwsSigner[F](credentialsProvider, region, service)
 
 }
@@ -340,7 +357,8 @@ object AwsSigner {
 class AwsSigner[F[_]](
     credentialsProvider: CredentialsProvider[F],
     region: Region,
-    service: Service) {
+    service: Service
+) {
 
   def apply(client: Client[F])(implicit F: Sync[F]): Client[F] = {
 
@@ -349,10 +367,13 @@ class AwsSigner[F[_]](
         credentials <- Resource.liftF(credentialsProvider.get)
         now <- Resource.liftF(
           Sync[F].delay(
-            Instant.now(Clock.systemUTC()).truncatedTo(ChronoUnit.SECONDS)))
+            Instant.now(Clock.systemUTC()).truncatedTo(ChronoUnit.SECONDS)
+          )
+        )
         fixed <- Resource.liftF(fixRequest(request, credentials, now))
         signed <- Resource.liftF(
-          signRequest(fixed, credentials, region, service))
+          signRequest(fixed, credentials, region, service)
+        )
         result <- client.run(signed)
       } yield result
     }

@@ -33,9 +33,12 @@ trait HttpCodecs {
       override def parse(s: String): ParseResult[StorageClass] =
         StorageClass
           .fromString(s)
-          .toRight(new ParseFailure(
-            "Failed to parse a storage class",
-            s"$s is nota valid storage class, valid values are: ${StorageClass.values}"))
+          .toRight(
+            new ParseFailure(
+              "Failed to parse a storage class",
+              s"$s is nota valid storage class, valid values are: ${StorageClass.values}"
+            )
+          )
       override def render(writer: Writer, t: StorageClass): writer.type =
         writer << t.toString
     }

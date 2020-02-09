@@ -24,7 +24,8 @@ object model {
   case class Credentials(
       accessKeyId: AccessKeyId,
       secretAccessKey: SecretAccessKey,
-      sessionToken: Option[SessionToken] = None)
+      sessionToken: Option[SessionToken] = None
+  )
 
   object Credentials {
 

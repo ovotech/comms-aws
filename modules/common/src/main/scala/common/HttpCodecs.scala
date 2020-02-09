@@ -38,11 +38,12 @@ trait HttpCodecs {
 
       override def parse(s: String): ParseResult[HttpDate] =
         Try(ZonedDateTime.parse(s, dateTimeFormatter)).toEither
-          .leftMap(
-            _ =>
-              ParseFailure(
-                "Error to parse a datetime",
-                s"The string `$s` is not a valid datetime"))
+          .leftMap(_ =>
+            ParseFailure(
+              "Error to parse a datetime",
+              s"The string `$s` is not a valid datetime"
+            )
+          )
           .flatMap(a => HttpDate.fromEpochSecond(a.toEpochSecond))
 
       override def render(writer: Writer, t: HttpDate): writer.type = {
