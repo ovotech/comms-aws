@@ -3,7 +3,6 @@ package s3
 
 import cats.implicits._
 import cats.effect._
-import fs2._
 import fs2.io._
 
 import java.nio.charset.StandardCharsets.UTF_8
@@ -29,8 +28,12 @@ class S3Spec extends IntegrationSpec {
   val nonExistingBucket = Bucket("ovo-comms-non-existing-bucket")
 
   val morePdf = IO(getClass.getResourceAsStream("/more.pdf"))
-  val moreSize = IO(
-    getClass.getResource("/more.pdf").openConnection().getContentLength)
+  val moreSize = IO { getClass
+    .getResource("/more.pdf")
+    .openConnection()
+    .getContentLength
+    .toLong
+  }
   val randomKey = IO(Key(UUID.randomUUID().toString))
 
   implicit val patience: PatienceConfig =
@@ -50,7 +53,7 @@ class S3Spec extends IntegrationSpec {
         "return the object eTag" in {
           withS3 { s3 =>
             s3.headObject(existingBucket, key)
-          }.futureValue.right.map { os =>
+          }.futureValue.map { os =>
             os.eTag shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f")
           }
         }
@@ -58,7 +61,7 @@ class S3Spec extends IntegrationSpec {
         "return the object metadata" in {
           withS3 { s3 =>
             s3.headObject(existingBucket, key)
-          }.futureValue.right.map { os =>
+          }.futureValue.map { os =>
             os.metadata shouldBe Map("is-test" -> "true")
           }
         }
@@ -66,7 +69,7 @@ class S3Spec extends IntegrationSpec {
         "return the object mediaType" in {
           withS3 { s3 =>
             s3.headObject(existingBucket, key)
-          }.futureValue.right.map { os =>
+          }.futureValue.map { os =>
             os.mediaType.isDefined shouldBe true
           }
         }
@@ -133,7 +136,7 @@ class S3Spec extends IntegrationSpec {
 
         "return the object eTag" in checkGetObject(existingBucket, existingKey) {
           objOrError =>
-            objOrError.right.map { obj =>
+            objOrError.map { obj =>
               obj.summary.eTag shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f")
             }
         }
@@ -141,7 +144,7 @@ class S3Spec extends IntegrationSpec {
         "return the object metadata" in checkGetObject(
           existingBucket,
           existingKey) { objOrError =>
-          objOrError.right.map { obj =>
+          objOrError.map { obj =>
             obj.summary.metadata shouldBe Map("is-test" -> "true")
           }
         }
@@ -149,7 +152,7 @@ class S3Spec extends IntegrationSpec {
         "return the object mediaType" in checkGetObject(
           existingBucket,
           existingKey) { objOrError =>
-          objOrError.right.map { obj =>
+          objOrError.map { obj =>
             obj.summary.mediaType.isDefined shouldBe true
           }
         }
@@ -167,7 +170,7 @@ class S3Spec extends IntegrationSpec {
         "return the object that after been consumed cannot be consumed again" ignore checkGetObject(
           existingBucket,
           existingKey) { objOrError =>
-          objOrError.right.map { obj =>
+          objOrError.map { obj =>
             (obj.content.compile.toList >> obj.content.compile.toList.attempt).futureValue shouldBe a[
               Left[_, _]]
           }
@@ -269,7 +272,7 @@ class S3Spec extends IntegrationSpec {
               _ <- s3.putObject(existingBucket, key, content, expectedMetadata)
               summary <- s3.headObject(existingBucket, key)
             } yield summary
-          }.futureValue.right.map { summary =>
+          }.futureValue.map { summary =>
             summary.metadata shouldBe expectedMetadata
           }
         }

@@ -2,12 +2,12 @@ lazy val fs2Version = "2.2.2"
 lazy val catsEffectVersion = "2.0.0"
 lazy val catsVersion = "2.0.0"
 lazy val awsSdkVersion = "1.11.718"
-lazy val scalatestVersion = "3.0.8"
+lazy val scalatestVersion = "3.1.0"
 lazy val scalacheckVersion = "1.14.3"
+lazy val scalatestScalacheckVersion = "3.1.0.1"
 lazy val slf4jVersion = "1.7.30"
 lazy val log4jVersion = "2.13.0"
-lazy val http4sVersion = "0.21.0-RC4"
-lazy val commsDockerkitVersion = "1.8.9"
+lazy val http4sVersion = "0.21.0-RC5"
 lazy val scalaXmlVersion = "1.2.0"
 lazy val circeVersion = "0.12.2"
 lazy val scodecBitsVersion = "1.1.12"
@@ -50,6 +50,7 @@ lazy val root = (project in file("."))
       organization := "com.ovoenergy.comms",
       organizationName := "OVO Energy",
       organizationHomepage := Some(url("https://ovoenergy.com")),
+      // TODO Extract contributors from github
       developers := List(
         Developer("filosganga", "Filippo De Luca", "filippo.deluca@ovoenergy.com", url("https://github.com/filosganga")),
         Developer("laurence-bird", "Laurence Bird", "laurence.bird@ovoenergy.com", url("https://github.com/laurence-bird")),
@@ -63,7 +64,8 @@ lazy val root = (project in file("."))
           url("https://github.com/ovotech/comms-aws"),
           "scm:git:git@github.com:ovotech/comms-aws.git")
       ),
-      scalaVersion := "2.12.10",
+      scalaVersion := "2.13.1",
+      crossScalaVersions += "2.12.10",
       resolvers ++= Seq(
         Resolver.bintrayRepo("ovotech", "maven")
       ),
@@ -77,9 +79,9 @@ lazy val root = (project in file("."))
       libraryDependencies ++= Seq(
         "org.scalatest" %% "scalatest" % scalatestVersion,
         "org.scalacheck" %% "scalacheck" % scalacheckVersion,
+        "org.scalatestplus" %% "scalacheck-1-14" % scalatestScalacheckVersion,
         "org.apache.logging.log4j" % "log4j-api" % log4jVersion,
         "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4jVersion,
-        "com.ovoenergy" %% "comms-docker-testkit" % commsDockerkitVersion,
         "org.http4s" %% "http4s-blaze-client" % http4sVersion,
       ).map(_ % s"$Test,$IntegrationTest"),
       scalafmtOnCompile := true,
@@ -101,7 +103,6 @@ lazy val common = (project in file("modules/common"))
       "com.amazonaws" % "aws-java-sdk-core" % awsSdkVersion % Optional,
     )
   )
-
 
 lazy val auth = (project in file("modules/auth"))
   .enablePlugins(AutomateHeaderPlugin)

@@ -1,81 +1,89 @@
 version: 2.1
 
-defaults:
-- &defaults
-  docker:
-  - image: circleci/openjdk:8-jdk
-
-- &restore-cache
-  restore_cache:
-    keys:
-    - dependencies-{{ checksum "build.sbt" }}
-    - dependencies
-
-- &save-cache
-  save_cache:
-    key: dependencies-{{ checksum "build.sbt" }}
-    paths:
-    - /home/circleci/.ivy2
-    - /home/circleci/.sbt
-
-- &add-github-host-ssh-key
-  run:
-    name: Configure git credentials
-    command: |
-      echo 'Adding the github host SSH key...'
-      mkdir -p -m 0700 ~/.ssh/
-      ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-
-- &configure-git-credentials
-  run:
-    name: Configure git credentials
-    command: |
-      git config user.name ovo-comms-circleci
-      git config user.email "hello.comms@ovoenergy.com"
-
-
 executors:
-  docker-executor:
+  docker:
     docker:
-    - image: circleci/openjdk:8-jdk
+    - image: circleci/openjdk:11-jdk
     environment:
       JAVA_OPTS: "-Xmx1g -XX:MaxMetaspaceSize=1g -XX:MetaspaceSize=1g -XX:+CMSClassUnloadingEnabled"
       DEFAULT_AWS_REGION: "eu-west-1"
       AWS_REGION: "eu-west-1"
-     
+
+  machine:
+    machine:
+      enabled: true
+      image: circleci/classic:edge
+
+    environment:
+      JAVA_OPTS: "-Xmx1g -XX:MaxMetaspaceSize=1g -XX:MetaspaceSize=1g -XX:+CMSClassUnloadingEnabled"
+      DEFAULT_AWS_REGION: "eu-west-1"
+      AWS_REGION: "eu-west-1"
+
+commands:
+  generate_sbt_cache_key:
+    description: "Generate sbt cache key"
+    steps:
+      - run: md5sum project/build.properties project/plugins.sbt build.sbt > .sbt_cache_key
+
+  store_sbt_cache:
+    description: "Store sbt cache"
+    steps:
+    - generate_sbt_cache_key
+    - save_cache:
+        key: dependencies-{{ checksum ".sbt_cache_key" }}
+        paths:
+        - /home/circleci/.ivy2
+        - /home/circleci/.sbt
+        - /home/circleci/.cache
+
+  restore_sbt_cache:
+    description: "Restore sbt cache"
+    steps:
+    - generate_sbt_cache_key
+    - restore_cache:
+        keys:
+        - dependencies-{{ checksum ".sbt_cache_key" }}
+        - dependencies
+
+  add_github_host_ssh_key:
+    description: "Add the github host SSH key"
+    steps:
+    - run:
+        name: Adding the github host SSH key
+        command: |
+          echo 'Adding the github host SSH key...'
+          mkdir -p -m 0700 ~/.ssh/
+          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+  configure_git_credentials:
+    description: "Configure git credentials"
+    steps:
+    - run:
+        name: Configure git credentials
+        command: |
+          git config user.name ovo-comms-circleci
+          git config user.email "hello.comms@ovoenergy.com"     
 
 jobs:
   build:
 
-    executor: docker-executor
+    executor: docker
 
     steps:
 
     - checkout
 
-    - *restore-cache
+    - restore_sbt_cache
 
-    - run:
-        command: sbt update
-        no_output_timeout: 20m
+    - run: sbt update
 
-    - *save-cache
+    - store_sbt_cache
 
-    - run:
-        command: sbt headerCheck
-
-    - run:
-        command: sbt scalafmtCheck
-
-    - run:
-        command: sbt test:scalafmtCheck
-
-    - run:
-        command: sbt it:scalafmtCheck
-
-    - run:
-        command: sbt test:compile
-        no_output_timeout: 20m
+    - run: sbt headerCheck
+    - run: sbt scalafmtCheck
+    - run: bt test:scalafmtCheck
+    - run: sbt it:scalafmtCheck
+    
+    - run: sbt +test:compile
 
     - persist_to_workspace:
         root: .
@@ -88,31 +96,15 @@ jobs:
         - modules/dynamodb/target
         - modules/s3/target
 
-  unit_test:
-
-    executor: docker-executor
-
+  s3_unit_test:    
+    executor: docker
     steps:
-
     - checkout
-
-    - *restore-cache
-
+    - restore_sbt_cache
     - attach_workspace:
         at: .
 
-    - run:
-        command: sbt test
-        no_output_timeout: 20m
-
-    - store_test_results:
-        path: modules/auth/target/test-reports
-
-    - store_test_results:
-        path: modules/common/target/test-reports
-
-    - store_test_results:
-        path: modules/dynamodb/target/test-reports
+    - run: sbt +s3/test
 
     - store_test_results:
         path: modules/s3/target/test-reports
@@ -121,31 +113,98 @@ jobs:
         path: target/unit-test.log
         destination: logs/unit-test.log
 
-  integration_test:
+  auth_unit_test:
 
-    executor: docker-executor
+    executor: docker
 
     steps:
 
     - checkout
-
-    - *restore-cache
-
+    - restore_sbt_cache
     - attach_workspace:
         at: .
 
-    - run:
-        command: sbt it:test
-        no_output_timeout: 20m
+    - run: sbt +auth/test
 
     - store_test_results:
         path: modules/auth/target/test-reports
+        
+    - store_artifacts:
+        path: target/unit-test.log
+        destination: logs/unit-test.log
+
+  common_unit_test:
+
+    executor: docker
+
+    steps:
+
+    - checkout
+    - restore_sbt_cache
+    - attach_workspace:
+        at: .
+
+    - run: sbt +common/test
+
+    - store_test_results:
+        path: modules/common/target/test-reports
+        
+    - store_artifacts:
+        path: target/unit-test.log
+        destination: logs/unit-test.log
+
+  common_integration_test:
+
+    executor: docker
+
+    steps:
+
+    - checkout
+    - restore_sbt_cache
+    - attach_workspace:
+        at: .
+
+    - run: sbt +common/it:test
 
     - store_test_results:
         path: modules/common/target/test-reports
 
+    - store_artifacts:
+        path: target/it-test.log
+        destination: logs/it-test.log
+
+  auth_integration_test:
+
+    executor: docker
+
+    steps:
+
+    - checkout
+    - restore_sbt_cache
+    - attach_workspace:
+        at: .
+
+    - run: sbt +auth/it:test
+
     - store_test_results:
-        path: modules/dynamodb/target/test-reports
+        path: modules/auth/target/test-reports
+
+    - store_artifacts:
+        path: target/it-test.log
+        destination: logs/it-test.log
+
+  s3_integration_test:
+
+    executor: docker
+
+    steps:
+
+    - checkout
+    - restore_sbt_cache
+    - attach_workspace:
+        at: .
+
+    - run: sbt +s3/it:test
 
     - store_test_results:
         path: modules/s3/target/test-reports
@@ -156,22 +215,15 @@ jobs:
 
   tag:
 
-    executor: docker-executor
+    executor: docker
 
     steps:
-
     - checkout
-
     - attach_workspace:
         at: .
-
-    - *add-github-host-ssh-key
-
-    - *configure-git-credentials
-
-    - run:
-        command: "build/tag.sh"
-
+    - add_github_host_ssh_key
+    - configure_git_credentials
+    - run: build/tag.sh
     # Update the workspace to make sure the git tags are available to the
     # downstream jobs
     - persist_to_workspace:
@@ -181,40 +233,56 @@ jobs:
 
   release:
 
-    executor: docker-executor
+    executor: docker
 
     steps:
-
     - checkout
-
-    - *restore-cache
-
     - attach_workspace:
         at: .
-
+    - restore_sbt_cache
     - run:
-        command: "sbt releaseEarly"
+        command: sbt +releaseEarly
         no_output_timeout: 20m
 
 workflows:
 
-  build_test_release:
+  main:
     jobs:
     - build
 
-    - unit_test:
+    - auth_unit_test:
         requires:
         - build
 
-    - integration_test:
+    - common_unit_test:
+        requires:
+        - build
+    
+    - s3_unit_test:
+        requires:
+        - build
+
+    - auth_integration_test:
+        requires:
+        - build
+
+    - common_integration_test:
+        requires:
+        - build
+    
+    - s3_integration_test:
         requires:
         - build
 
     - tag:
         requires:
         - build
-        - unit_test
-        - integration_test
+        - auth_unit_test
+        - common_unit_test
+        - s3_unit_test
+        - auth_integration_test
+        - common_integration_test
+        - s3_integration_test
         filters:
           branches:
             only: master

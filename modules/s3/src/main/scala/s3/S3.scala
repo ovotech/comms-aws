@@ -23,7 +23,7 @@ import cats.effect._
 import java.nio.ByteBuffer
 
 import org.http4s.syntax.all._
-import org.http4s.{Service => _, _}
+import org.http4s.{Service => _, headers => _, _}
 import org.http4s.headers._
 import Method._
 import client.Client
@@ -245,7 +245,7 @@ object S3 {
       }.toMap
 
       etag.map { eTag =>
-        model.ObjectSummary(
+        ObjectSummary(
           eTag,
           mediaType,
           charset,
