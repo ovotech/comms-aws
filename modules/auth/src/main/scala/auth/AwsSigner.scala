@@ -36,13 +36,14 @@ import org.slf4j.LoggerFactory
 
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import javax.xml.bind.DatatypeConverter
 import fs2.hash._
 import org.http4s.{Request, HttpDate, Response}
 import org.http4s.Header.Raw
 import org.http4s.client.Client
-import org.http4s.headers.{Date, Authorization, Host}
+import org.http4s.headers.{Date, Host}
 import org.http4s.syntax.all._
+
+import org.apache.commons.codec.binary.Hex
 
 object AwsSigner {
 
@@ -59,8 +60,7 @@ object AwsSigner {
   val EncodedSlashRegex: Regex = "%2F".r
   val StarRegex: Regex = """\*""".r
 
-  def encodeHex(bytes: Array[Byte]): String =
-    DatatypeConverter.printHexBinary(bytes).toLowerCase
+  def encodeHex(bytes: Array[Byte]): String = Hex.encodeHexString(bytes)
 
   def uriEncode(str: String): String = {
     StarRegex.replaceAllIn(
