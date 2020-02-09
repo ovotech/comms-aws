@@ -11,6 +11,7 @@ lazy val http4sVersion = "0.21.0-RC5"
 lazy val scalaXmlVersion = "1.2.0"
 lazy val circeVersion = "0.12.2"
 lazy val scodecBitsVersion = "1.1.12"
+lazy val jaxbVersion = "2.3.2"
 
 
 lazy val IntegrationTest = config("it") extend Test
@@ -136,6 +137,7 @@ lazy val s3 = (project in file("modules/s3"))
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-scala-xml" % http4sVersion,
       "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion,
+      "com.sun.xml.bind" % "jaxb-impl" % jaxbVersion,
       "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
       "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion % s"$Test,$IntegrationTest",
     )
