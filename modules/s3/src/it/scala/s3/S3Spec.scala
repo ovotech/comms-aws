@@ -66,11 +66,11 @@ class S3Spec extends IntegrationSpec {
           }
         }
 
-        "return the object mediaType" in {
+        "return the object contentLength" in {
           withS3 { s3 =>
             s3.headObject(existingBucket, key)
           }.futureValue.map { os =>
-            os.mediaType.isDefined shouldBe true
+            os.contentLength should be > 0L
           }
         }
       }
@@ -149,11 +149,11 @@ class S3Spec extends IntegrationSpec {
           }
         }
 
-        "return the object mediaType" in checkGetObject(
+        "return the object contentLength" in checkGetObject(
           existingBucket,
           existingKey) { objOrError =>
           objOrError.map { obj =>
-            obj.summary.mediaType.isDefined shouldBe true
+            obj.summary.contentLength should be > 0L
           }
         }
 
