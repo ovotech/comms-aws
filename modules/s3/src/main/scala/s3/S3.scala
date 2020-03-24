@@ -90,9 +90,7 @@ object S3 {
       // TODO It only supports path style access ATM
       val bucketEndpoint = baseEndpoint / bucket.name
 
-      key.value.split("/", -1).foldLeft(bucketEndpoint) { (acc, x) =>
-        acc / x
-      }
+      key.value.split("/", -1).foldLeft(bucketEndpoint) { (acc, x) => acc / x }
     }
 
     def getObject(
@@ -103,9 +101,7 @@ object S3 {
         signedClient.run(req).evalMap { response =>
           if (response.status.isSuccess) {
             parseObjectSummary(response).value.rethrow // TODO should lack of etag be an error here?
-              .map { summary =>
-                Object(summary, response.body).asRight[Error]
-              }
+              .map { summary => Object(summary, response.body).asRight[Error] }
           } else
             response.as[Error].map(_.asLeft[Object[F]])
         }
