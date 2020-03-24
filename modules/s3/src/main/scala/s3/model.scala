@@ -30,7 +30,8 @@ object model {
 
   case class ObjectSummary(
       eTag: Etag,
-      mediaType: Option[MediaType],
+      mediaType: MediaType,
+      contentLength: Long,
       charset: Option[Charset],
       metadata: Map[String, String]
   )
