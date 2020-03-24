@@ -25,11 +25,11 @@ import java.nio.ByteBuffer
 import org.http4s.syntax.all._
 import org.http4s.{Service => _, headers => _, _}
 import org.http4s.headers._
-import Method._
-import client.Client
-import client.blaze.BlazeClientBuilder
-import client.dsl.Http4sClientDsl
+import org.http4s.Method._
 import org.http4s.Header.Raw
+import org.http4s.client.Client
+import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.client.dsl.Http4sClientDsl
 
 import scala.concurrent.ExecutionContext
 import scalaxml._
@@ -238,7 +238,7 @@ object S3 {
         response: Media[F]
     ): DecodeResult[F, ObjectSummary] = {
 
-      val etag: DecodeResult[F, Etag] = response.headers
+      val eTag: DecodeResult[F, Etag] = response.headers
         .get(ETag)
         .map(t => DecodeResult.success[F, Etag](Etag(t.tag.tag)))
         .getOrElse(
@@ -249,22 +249,47 @@ object S3 {
           )
         )
 
-      val mediaType = response.headers.get(`Content-Type`).map(_.mediaType)
+      val mediaType: DecodeResult[F, MediaType] = response.headers
+        .get(`Content-Type`)
+        .map(_.mediaType)
+        .fold(
+          DecodeResult.failure[F, MediaType](
+            MalformedMessageBodyFailure(
+              "The response needs to contain Media-Type header"
+            )
+          )
+        )(DecodeResult.success[F, MediaType])
 
-      val charset = response.headers.get(`Content-Type`).flatMap(_.charset)
+      val charset: DecodeResult[F, Option[Charset]] = response.headers
+        .get(`Content-Type`)
+        .flatMap(_.charset)
+        .traverse(DecodeResult.success[F, Charset])
+
+      val contentLength = response.headers
+        .get(`Content-Length`)
+        .map(_.length)
+        .fold(
+          DecodeResult.failure[F, Long](
+            MalformedMessageBodyFailure(
+              "The response needs to contain Content-Length header"
+            )
+          )
+        )(DecodeResult.success[F, Long])
 
       val metadata: Map[String, String] = response.headers.toList.collect {
         case h if h.name.value.toLowerCase.startsWith(`X-Amz-Meta-`) =>
           h.name.value.substring(`X-Amz-Meta-`.length) -> h.value
       }.toMap
 
-      etag.map { eTag =>
-        ObjectSummary(
-          eTag,
-          mediaType,
-          charset,
-          metadata
-        )
+      (eTag, mediaType, charset, contentLength).mapN {
+        (eTag, mediaType, charset, contentLength) =>
+          ObjectSummary(
+            eTag,
+            mediaType,
+            contentLength,
+            charset,
+            metadata
+          )
       }
     }
 
