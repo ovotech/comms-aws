@@ -1,74 +1,66 @@
 pull_request_rules:
-
   - name: label ovo-scala-steward's pre-release version PRs
     conditions:
       - author=ovo-scala-steward
-      - body~=labels:.*semver-pre-release
+      - 'body~=labels:.*semver-pre-release'
     actions:
       label:
         add:
           - ovo-scala-steward
           - pre-release-update
-
   - name: label ovo-scala-steward's minor version PRs
     conditions:
       - author=ovo-scala-steward
-      - body~=labels:.*semver-minor
+      - 'body~=labels:.*semver-minor'
     actions:
       label:
         add:
           - ovo-scala-steward
           - minor-update
-
   - name: label ovo-scala-steward's patch version PRs
     conditions:
       - author=ovo-scala-steward
-      - body~=labels:.*semver-patch
+      - 'body~=labels:.*semver-patch'
     actions:
       label:
         add:
           - ovo-scala-steward
           - patch-update
-
   - name: label ovo-scala-steward's major version PRs
     conditions:
       - author=ovo-scala-steward
-      - body~=labels:.*semver-major
+      - 'body~=labels:.*semver-major'
     actions:
       label:
         add:
           - ovo-scala-steward
           - major-update
-
   - name: automatically merge ovo-scala-steward's minor version PRs
     conditions:
       - author=ovo-scala-steward
-      - "status-success=ci/circleci: auth_integration_test"
-      - "status-success=ci/circleci: auth_unit_test"
-      - "status-success=ci/circleci: build"
-      - "status-success=ci/circleci: common_integration_test"
-      - "status-success=ci/circleci: common_unit_test"
-      - "status-success=ci/circleci: s3_integration_test"
-      - "status-success=ci/circleci: s3_unit_test"
-      - body~=labels:.*semver-minor
+      - 'body~=labels:.*semver-minor'
+      - 'status-success=ci/circleci: auth_unit_test'
+      - 'status-success=ci/circleci: common_unit_test'
+      - 'status-success=ci/circleci: s3_unit_test'
+      - 'status-success=ci/circleci: auth_integration_test'
+      - 'status-success=ci/circleci: common_integration_test'
+      - 'status-success=ci/circleci: s3_integration_test'
     actions:
       review:
         type: APPROVE
       merge:
         strict: smart
       delete_head_branch: {}
-
   - name: automatically merge ovo-scala-steward's patch version PRs
     conditions:
       - author=ovo-scala-steward
-      - "status-success=ci/circleci: auth_integration_test"
-      - "status-success=ci/circleci: auth_unit_test"
-      - "status-success=ci/circleci: build"
-      - "status-success=ci/circleci: common_integration_test"
-      - "status-success=ci/circleci: common_unit_test"
-      - "status-success=ci/circleci: s3_integration_test"
-      - "status-success=ci/circleci: s3_unit_test"
-      - body~=labels:.*semver-patch
+      - 'body~=labels:.*semver-patch'
+      - 'status-success=ci/circleci: auth_unit_test'
+      - 'status-success=ci/circleci: common_unit_test'
+      - 'status-success=ci/circleci: s3_unit_test'
+      - 'status-success=ci/circleci: auth_integration_test'
+      - 'status-success=ci/circleci: common_integration_test'
+      - 'status-success=ci/circleci: s3_integration_test'
     actions:
       review:
         type: APPROVE
