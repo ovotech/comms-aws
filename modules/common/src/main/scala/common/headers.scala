@@ -81,8 +81,7 @@ object headers extends HttpCodecs {
       `X-Amz-Content-SHA256`(s).asRight
   }
 
-  final case class `X-Amz-Content-SHA256`(hashedContent: String)
-      extends Header.Parsed {
+  final case class `X-Amz-Content-SHA256`(hashedContent: String) extends Header.Parsed {
     def key: `X-Amz-Content-SHA256`.type = `X-Amz-Content-SHA256`
 
     def renderValue(writer: Writer): writer.type = writer << hashedContent
@@ -105,8 +104,7 @@ object headers extends HttpCodecs {
       HttpCodec[SessionToken].parse(s).map(`X-Amz-Security-Token`.apply)
   }
 
-  final case class `X-Amz-Security-Token`(sessionToken: SessionToken)
-      extends Header.Parsed {
+  final case class `X-Amz-Security-Token`(sessionToken: SessionToken) extends Header.Parsed {
     def key: `X-Amz-Security-Token`.type = `X-Amz-Security-Token`
 
     def renderValue(writer: Writer): writer.type = writer << sessionToken

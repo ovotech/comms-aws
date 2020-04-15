@@ -153,8 +153,8 @@ object S3 {
           }
         } else {
           content.data.chunks.compile
-            .fold(ByteBuffer.allocate(content.contentLength.toInt))(
-              (buffer, chunk) => buffer put chunk.toByteBuffer
+            .fold(ByteBuffer.allocate(content.contentLength.toInt))((buffer, chunk) =>
+              buffer put chunk.toByteBuffer
             )
             .map(_.array())
         }
@@ -281,15 +281,14 @@ object S3 {
           h.name.value.substring(`X-Amz-Meta-`.length) -> h.value
       }.toMap
 
-      (eTag, mediaType, charset, contentLength).mapN {
-        (eTag, mediaType, charset, contentLength) =>
-          ObjectSummary(
-            eTag,
-            mediaType,
-            contentLength,
-            charset,
-            metadata
-          )
+      (eTag, mediaType, charset, contentLength).mapN { (eTag, mediaType, charset, contentLength) =>
+        ObjectSummary(
+          eTag,
+          mediaType,
+          contentLength,
+          charset,
+          metadata
+        )
       }
     }
 

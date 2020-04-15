@@ -67,8 +67,7 @@ object headers extends HttpCodecs {
 
   }
 
-  final case class `X-Amz-Storage-Class`(storageClass: StorageClass)
-      extends Header.Parsed {
+  final case class `X-Amz-Storage-Class`(storageClass: StorageClass) extends Header.Parsed {
     def key: `X-Amz-Storage-Class`.type = `X-Amz-Storage-Class`
 
     def renderValue(writer: Writer): writer.type = writer << storageClass

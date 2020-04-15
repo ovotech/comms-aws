@@ -329,8 +329,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
   def withFixedRequest[A](
       req: IO[Request[IO]],
       now: Instant = Instant.now(),
-      credentials: Credentials =
-        Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR"))
+      credentials: Credentials = Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR"))
   )(f: Request[IO] => IO[A]): IO[A] = {
     for {
       request <- req
@@ -343,8 +342,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       req: IO[Request[IO]],
       region: Region = Region.`eu-west-1`,
       service: Service = Service.DynamoDb,
-      credentials: Credentials =
-        Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR"))
+      credentials: Credentials = Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR"))
   )(f: Request[IO] => IO[A]): IO[A] = {
     for {
       request <- req

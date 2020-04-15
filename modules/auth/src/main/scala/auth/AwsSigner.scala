@@ -162,9 +162,7 @@ object AwsSigner {
 
     def addXAmzSecurityTokenHeader(r: Request[F]): F[Request[F]] =
       credentials.sessionToken
-        .fold(r)(sessionToken =>
-          r.putHeaders(`X-Amz-Security-Token`(sessionToken))
-        )
+        .fold(r)(sessionToken => r.putHeaders(`X-Amz-Security-Token`(sessionToken)))
         .pure[F]
 
     def addHashedBody(r: Request[F]): F[Request[F]] =
@@ -224,124 +222,123 @@ object AwsSigner {
         )
       )(_.pure[F])
 
-    (hashedPayloadF, requestDateTimeF).mapN {
-      (hashedPayload, requestDateTime) =>
-        val formattedDateTime = requestDateTime
+    (hashedPayloadF, requestDateTimeF).mapN { (hashedPayload, requestDateTime) =>
+      val formattedDateTime = requestDateTime
+        .atOffset(ZoneOffset.UTC)
+        .format(AwsSigner.dateTimeFormatter)
+
+      val formattedDate =
+        requestDateTime
           .atOffset(ZoneOffset.UTC)
-          .format(AwsSigner.dateTimeFormatter)
+          .format(AwsSigner.dateFormatter)
 
-        val formattedDate =
-          requestDateTime
-            .atOffset(ZoneOffset.UTC)
-            .format(AwsSigner.dateFormatter)
+      val scope =
+        s"$formattedDate/${region.value}/${service.value}/aws4_request"
 
-        val scope =
-          s"$formattedDate/${region.value}/${service.value}/aws4_request"
+      val (canonicalHeaders, signedHeaders) = {
 
-        val (canonicalHeaders, signedHeaders) = {
-
-          val grouped = request.headers.toList.groupBy(_.name)
-          val combined = grouped.mapValues(
-            _.map(h => MultipleSpaceRegex.replaceAllIn(h.value, " ").trim)
-              .mkString(",")
-          )
-
-          val canonical = combined.toSeq
-            .sortBy(_._1)
-            .map { case (k, v) => s"${k.value.toLowerCase}:$v\n" }
-            .mkString("")
-
-          val signed: String =
-            request.headers.toList
-              .map(_.name.value.toLowerCase)
-              .toSeq
-              .distinct
-              .sorted
-              .mkString(";")
-
-          canonical -> signed
-        }
-
-        val canonicalRequest = {
-
-          val method = request.method.name.toUpperCase
-
-          val canonicalUri = {
-            val absolutePath =
-              if (request.uri.path.startsWith("/")) request.uri.path
-              else "/" ++ request.uri.path
-
-            // you do not normalize URI paths for requests to Amazon S3
-            val normalizedPath = if (service != Service.S3) {
-              DoubleSlashRegex.replaceAllIn(absolutePath, "/")
-            } else {
-              absolutePath
-            }
-
-            val encodedOnceSegments = normalizedPath
-              .split("/", -1)
-              .map(uriEncode)
-
-            // Normalize URI paths according to RFC 3986. Remove redundant and
-            // relative path components. Each path segment must be URI-encoded
-            // twice (except for Amazon S3 which only gets URI-encoded once).
-            //
-            // NOTE: This does not seems true at least not for ES
-            // TODO: Test against dynamodb
-            //
-            val encodedTwiceSegments = if (service != Service.S3) {
-              encodedOnceSegments
-            } else {
-              encodedOnceSegments
-            }
-
-            encodedTwiceSegments.mkString("/")
-          }
-
-          val canonicalQueryString: String =
-            request.uri.query.toList
-              .sortBy(_._1)
-              .map {
-                case (a, b) => s"${uriEncode(a)}=${uriEncode(b.getOrElse(""))}"
-              }
-              .mkString("&")
-
-          val result =
-            s"$method\n$canonicalUri\n$canonicalQueryString\n$canonicalHeaders\n$signedHeaders\n$hashedPayload"
-
-          logger.debug(s"canonicalRequest: $result")
-
-          result
-        }
-
-        val stringToSign = {
-          val digest = MessageDigest.getInstance(digestAlgorithm)
-          val hashedRequest =
-            encodeHex(digest.digest(canonicalRequest.getBytes))
-
-          val result = s"$algorithm\n$formattedDateTime\n$scope\n$hashedRequest"
-
-          logger.debug(s"stringToSign: $result")
-
-          result
-        }
-
-        val signingKey: SecretKeySpec =
-          key(formattedDate, credentials, region, service, signingAlgorithm)
-
-        val signature: String = encodeHex(
-          signWithKey(signingKey, stringToSign.getBytes, signingAlgorithm)
+        val grouped = request.headers.toList.groupBy(_.name)
+        val combined = grouped.mapValues(
+          _.map(h => MultipleSpaceRegex.replaceAllIn(h.value, " ").trim)
+            .mkString(",")
         )
 
-        val authorizationHeader = {
+        val canonical = combined.toSeq
+          .sortBy(_._1)
+          .map { case (k, v) => s"${k.value.toLowerCase}:$v\n" }
+          .mkString("")
 
-          val authorizationHeaderValue =
-            s"$algorithm Credential=${credentials.accessKeyId.value}/$scope, SignedHeaders=$signedHeaders, Signature=$signature"
+        val signed: String =
+          request.headers.toList
+            .map(_.name.value.toLowerCase)
+            .toSeq
+            .distinct
+            .sorted
+            .mkString(";")
 
-          Raw("Authorization".ci, authorizationHeaderValue)
+        canonical -> signed
+      }
+
+      val canonicalRequest = {
+
+        val method = request.method.name.toUpperCase
+
+        val canonicalUri = {
+          val absolutePath =
+            if (request.uri.path.startsWith("/")) request.uri.path
+            else "/" ++ request.uri.path
+
+          // you do not normalize URI paths for requests to Amazon S3
+          val normalizedPath = if (service != Service.S3) {
+            DoubleSlashRegex.replaceAllIn(absolutePath, "/")
+          } else {
+            absolutePath
+          }
+
+          val encodedOnceSegments = normalizedPath
+            .split("/", -1)
+            .map(uriEncode)
+
+          // Normalize URI paths according to RFC 3986. Remove redundant and
+          // relative path components. Each path segment must be URI-encoded
+          // twice (except for Amazon S3 which only gets URI-encoded once).
+          //
+          // NOTE: This does not seems true at least not for ES
+          // TODO: Test against dynamodb
+          //
+          val encodedTwiceSegments = if (service != Service.S3) {
+            encodedOnceSegments
+          } else {
+            encodedOnceSegments
+          }
+
+          encodedTwiceSegments.mkString("/")
         }
 
-        request.putHeaders(authorizationHeader)
+        val canonicalQueryString: String =
+          request.uri.query.toList
+            .sortBy(_._1)
+            .map {
+              case (a, b) => s"${uriEncode(a)}=${uriEncode(b.getOrElse(""))}"
+            }
+            .mkString("&")
+
+        val result =
+          s"$method\n$canonicalUri\n$canonicalQueryString\n$canonicalHeaders\n$signedHeaders\n$hashedPayload"
+
+        logger.debug(s"canonicalRequest: $result")
+
+        result
+      }
+
+      val stringToSign = {
+        val digest = MessageDigest.getInstance(digestAlgorithm)
+        val hashedRequest =
+          encodeHex(digest.digest(canonicalRequest.getBytes))
+
+        val result = s"$algorithm\n$formattedDateTime\n$scope\n$hashedRequest"
+
+        logger.debug(s"stringToSign: $result")
+
+        result
+      }
+
+      val signingKey: SecretKeySpec =
+        key(formattedDate, credentials, region, service, signingAlgorithm)
+
+      val signature: String = encodeHex(
+        signWithKey(signingKey, stringToSign.getBytes, signingAlgorithm)
+      )
+
+      val authorizationHeader = {
+
+        val authorizationHeaderValue =
+          s"$algorithm Credential=${credentials.accessKeyId.value}/$scope, SignedHeaders=$signedHeaders, Signature=$signature"
+
+        Raw("Authorization".ci, authorizationHeaderValue)
+      }
+
+      request.putHeaders(authorizationHeader)
     }
   }
 

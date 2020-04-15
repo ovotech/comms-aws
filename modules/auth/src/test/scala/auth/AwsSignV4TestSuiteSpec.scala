@@ -149,9 +149,7 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
 
     (for {
       request <- EitherT(
-        source(s"${baseFileName}${RequestFileSuffix}").use(r =>
-          parseRequest(r.mkString)
-        )
+        source(s"${baseFileName}${RequestFileSuffix}").use(r => parseRequest(r.mkString))
       )
       signature <- EitherT.right[String](
         source(s"${baseFileName}${AuthorizationFileSuffix}")
