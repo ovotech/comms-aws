@@ -47,7 +47,7 @@ class S3Spec extends IntegrationSpec {
 
   "headObject" when {
 
-    "the bucked exists" when {
+    "the bucket exists" when {
       "the key does exist" should {
         val key = existingKey
         "return the object eTag" in {
@@ -101,7 +101,7 @@ class S3Spec extends IntegrationSpec {
       }
     }
 
-    "the bucked does not exist" should {
+    "the bucket does not exist" should {
 
       "return a Left" in {
         withS3 { s3 =>
@@ -131,7 +131,7 @@ class S3Spec extends IntegrationSpec {
 
   "getObject" when {
 
-    "the bucked exists" when {
+    "the bucket exists" when {
       "the key does exist" should {
 
         "return the object eTag" in checkGetObject(existingBucket, existingKey) {
@@ -203,7 +203,7 @@ class S3Spec extends IntegrationSpec {
       }
     }
 
-    "the bucked does not exist" should {
+    "the bucket does not exist" should {
 
       "return a Left" in checkGetObject(nonExistingBucket, existingKey) {
         objOrError =>
@@ -231,7 +231,7 @@ class S3Spec extends IntegrationSpec {
   }
 
   "putObject" when {
-    "the bucked exists" when {
+    "the bucket exists" when {
       "the key does not exist" should {
 
         "upload the object content" in {
@@ -318,7 +318,7 @@ class S3Spec extends IntegrationSpec {
       }
     }
 
-    "the bucked does not exist" should {
+    "the bucket does not exist" should {
 
       "return a Left" in {
         withS3 { s3 =>
