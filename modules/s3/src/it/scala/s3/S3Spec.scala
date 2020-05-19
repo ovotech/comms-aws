@@ -136,25 +136,17 @@ class S3Spec extends IntegrationSpec {
 
         "return the object eTag" in checkGetObject(existingBucket, existingKey) {
           objOrError =>
-            objOrError.map { obj =>
-              obj.summary.eTag shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f")
-            }
+            objOrError.map(_.summary.eTag) shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f").asRight
         }
 
-        "return the object metadata" in checkGetObject(
-          existingBucket,
-          existingKey) { objOrError =>
-          objOrError.map { obj =>
-            obj.summary.metadata shouldBe Map("is-test" -> "true")
-          }
+        "return the object metadata" in checkGetObject(existingBucket, existingKey) {
+          objOrError =>
+            objOrError.map(_.summary.metadata) shouldBe Map("is-test" -> "true").asRight
         }
 
-        "return the object contentLength" in checkGetObject(
-          existingBucket,
-          existingKey) { objOrError =>
-          objOrError.map { obj =>
-            obj.summary.contentLength should be > 0L
-          }
+        "return the object contentLength" in checkGetObject(existingBucket, existingKey) {
+          objOrError =>
+            objOrError.map(_.summary.contentLength > 0L) shouldBe true.asRight
         }
 
         "return the object that can be consumed to a file" in {
@@ -163,7 +155,7 @@ class S3Spec extends IntegrationSpec {
               .map(_.leftWiden[Throwable])
               .rethrow
               .use(_.content.compile.toList)
-          }.futureValue should not be (empty)
+          }.futureValue should not be empty
         }
 
         // FIXME This test does not pass, but we have verified manually that the connection is getting disposed
