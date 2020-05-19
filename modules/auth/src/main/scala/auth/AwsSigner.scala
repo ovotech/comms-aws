@@ -283,7 +283,7 @@ object AwsSigner {
           // relative path components. Each path segment must be URI-encoded
           // twice (except for Amazon S3 which only gets URI-encoded once).
           //
-          // NOTE: This does not seems true at least not for ES
+          // NOTE: This does not seem true at least not for ES
           // TODO: Test against dynamodb
           //
           val encodedTwiceSegments = if (service != Service.S3) {

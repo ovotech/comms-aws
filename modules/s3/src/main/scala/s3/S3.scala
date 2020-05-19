@@ -80,7 +80,7 @@ object S3 {
     val signedClient = signer(client)
     val baseEndpoint = endpoint.getOrElse {
       if (region == Region.`us-east-1`)
-        Uri.uri("https://s3.amazonaws.com")
+        uri"https://s3.amazonaws.com"
       else
         Uri.unsafeFromString(s"https://s3-${region.value}.amazonaws.com")
       // TODO use the total version, we may need a S3 builder that returns F[S3[F]]
