@@ -78,18 +78,12 @@ object S3 {
 
     val signer = AwsSigner[F](credentialsProvider, region, Service.S3)
     val signedClient = signer(client)
-    val baseEndpoint = endpoint.getOrElse {
-      if (region == Region.`us-east-1`)
-        uri"https://s3.amazonaws.com"
-      else
-        Uri.unsafeFromString(s"https://s3-${region.value}.amazonaws.com")
-      // TODO use the total version, we may need a S3 builder that returns F[S3[F]]
+    def baseEndpoint(bucket: Bucket) = endpoint.getOrElse {
+      Uri.unsafeFromString(s"https://${bucket.name}.s3.${region.value}.amazonaws.com")
     }
 
     def uri(bucket: Bucket, key: Key) = {
-      // TODO It only supports path style access ATM
-      val bucketEndpoint = baseEndpoint / bucket.name
-
+      val bucketEndpoint = baseEndpoint(bucket)
       key.value.split("/", -1).foldLeft(bucketEndpoint) { (acc, x) => acc / x }
     }
 
