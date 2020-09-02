@@ -11,7 +11,7 @@ lazy val http4sVersion = "0.21.7"
 lazy val scalaXmlVersion = "1.3.0"
 lazy val circeVersion = "0.12.2"
 lazy val scodecBitsVersion = "1.1.12"
-lazy val commonCodecVersion = "1.14"
+lazy val commonCodecVersion = "1.15"
 
 lazy val IntegrationTest = config("it") extend Test
 
