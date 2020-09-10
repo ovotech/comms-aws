@@ -19,7 +19,6 @@ package s3
 
 import cats.implicits._
 import cats.effect._
-
 import java.nio.ByteBuffer
 
 import org.http4s.syntax.all._
@@ -30,8 +29,9 @@ import org.http4s.Header.Raw
 import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.client.dsl.Http4sClientDsl
-
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
+
 import scalaxml._
 import scala.xml.Elem
 
@@ -58,7 +58,7 @@ trait S3[F[_]] {
 
 object S3 {
 
-  def resource[F[_]: ConcurrentEffect](
+  def resource[F[_]: ConcurrentEffect: Timer](
       credentialsProvider: CredentialsProvider[F],
       region: Region,
       endpoint: Option[Uri] = None,
@@ -69,11 +69,12 @@ object S3 {
     )
   }
 
-  def apply[F[_]: Sync](
+  def apply[F[_]: Sync: Timer](
       client: Client[F],
       credentialsProvider: CredentialsProvider[F],
       region: Region,
-      endpoint: Option[Uri] = None
+      endpoint: Option[Uri] = None,
+      retryPolicy: RetryPolicy = RetryPolicy.default
   ): S3[F] = new S3[F] with Http4sClientDsl[F] {
 
     val signer = AwsSigner[F](credentialsProvider, region, Service.S3)
@@ -92,12 +93,14 @@ object S3 {
         key: Key
     ): Resource[F, Either[Error, Object[F]]] =
       Resource.liftF(GET(uri(bucket, key))).flatMap { req =>
-        signedClient.run(req).evalMap { response =>
-          if (response.status.isSuccess) {
-            parseObjectSummary(response).value.rethrow // TODO should lack of etag be an error here?
-              .map { summary => Object(summary, response.body).asRight[Error] }
-          } else
-            response.as[Error].map(_.asLeft[Object[F]])
+        signedClient.run(req).evalMap {
+          case r if r.status.isSuccess =>
+            parseObjectSummary(r).value.rethrow // TODO should lack of etag be an error here?
+              .map { summary => Object(summary, r.body).asRight[Error] }
+          case r if r.status.responseClass == Status.ServerError =>
+            Sync[F].raiseError[Either[Error, Object[F]]](RetriableServerError)
+          case r =>
+            r.as[Error].map(_.asLeft[Object[F]])
         }
       }
 
@@ -108,12 +111,14 @@ object S3 {
 
       for {
         request <- GET(uri(bucket, key))
-        result <- signedClient.fetch(request) {
+        result <- withRetry(signedClient.run(request).use {
           case r if r.status.isSuccess =>
             r.as[ObjectSummary].map(_.asRight[Error])
+          case r if r.status.responseClass == Status.ServerError =>
+            Sync[F].raiseError[Either[Error, ObjectSummary]](RetriableServerError)
           case r =>
             r.as[Error].map(_.asLeft[ObjectSummary])
-        }
+        })
       } yield result
     }
 
@@ -157,12 +162,20 @@ object S3 {
         hs <- initHeaders
         contentAsSingleChunk <- extractContent
         request <- PUT(contentAsSingleChunk, uri(bucket, key), hs.toList: _*)
-        result <- signedClient.fetch(request) { r =>
-          if (r.status.isSuccess) r.as[ObjectPut].map(_.asRight[Error])
-          else r.as[Error].map(_.asLeft[ObjectPut])
-        }
+        result <- withRetry(signedClient.run(request).use {
+          case r if r.status.isSuccess => r.as[ObjectPut].map(_.asRight[Error])
+          case r if r.status.responseClass == Status.ServerError =>
+            Sync[F].raiseError[Either[Error, ObjectPut]](RetriableServerError)
+          case r => r.as[Error].map(_.asLeft[ObjectPut])
+        })
       } yield result
     }
+
+    private def withRetry[A](fa: F[A]): F[A] =
+      fs2.Stream
+        .retry(fa, retryPolicy.delay, retryPolicy.nextDelay, retryPolicy.maxAttempts)
+        .compile
+        .lastOrError
 
     implicit def errorEntityDecoder: EntityDecoder[F, Error] =
       EntityDecoder[F, Elem].flatMapR { elem =>
@@ -288,4 +301,25 @@ object S3 {
 
   }
 
+  private case object RetriableServerError extends Exception
+
+  case class RetryPolicy(
+      delay: FiniteDuration,
+      nextDelay: FiniteDuration => FiniteDuration,
+      maxAttempts: Int,
+      retriable: Throwable => Boolean
+  )
+
+  object RetryPolicy {
+    // about 50s in total
+    val default = RetryPolicy(
+      50.milliseconds, { prevDuration: FiniteDuration =>
+        (prevDuration.toMillis * 1.25).milliseconds
+      },
+      25, {
+        case RetriableServerError => true
+        case _ => false
+      }
+    )
+  }
 }
