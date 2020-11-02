@@ -11,7 +11,6 @@ import java.util.concurrent.Executors
 
 import scala.concurrent.duration._
 
-
 import common.model._
 import common.{CredentialsProvider, IntegrationSpec}
 import model._
@@ -28,11 +27,12 @@ class S3Spec extends IntegrationSpec {
   val nonExistingBucket = Bucket("ovo-comms-non-existing-bucket")
 
   val morePdf = IO(getClass.getResourceAsStream("/more.pdf"))
-  val moreSize = IO { getClass
-    .getResource("/more.pdf")
-    .openConnection()
-    .getContentLength
-    .toLong
+  val moreSize = IO {
+    getClass
+      .getResource("/more.pdf")
+      .openConnection()
+      .getContentLength
+      .toLong
   }
   val randomKey = IO(Key(UUID.randomUUID().toString))
 
@@ -44,6 +44,7 @@ class S3Spec extends IntegrationSpec {
   val blocker = Blocker.liftExecutionContext(blockingEc)
   implicit val ctx: ContextShift[IO] =
     IO.contextShift(scala.concurrent.ExecutionContext.global)
+  implicit val timer: Timer[IO] = IO.timer(blockingEc)
 
   "headObject" when {
 
@@ -134,14 +135,12 @@ class S3Spec extends IntegrationSpec {
     "the bucket exists" when {
       "the key does exist" should {
 
-        "return the object eTag" in checkGetObject(existingBucket, existingKey) {
-          objOrError =>
-            objOrError.map(_.summary.eTag) shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f").asRight
+        "return the object eTag" in checkGetObject(existingBucket, existingKey) { objOrError =>
+          objOrError.map(_.summary.eTag) shouldBe Etag("9fe029056e0841dde3c1b8a169635f6f").asRight
         }
 
-        "return the object metadata" in checkGetObject(existingBucket, existingKey) {
-          objOrError =>
-            objOrError.map(_.summary.metadata) shouldBe Map("is-test" -> "true").asRight
+        "return the object metadata" in checkGetObject(existingBucket, existingKey) { objOrError =>
+          objOrError.map(_.summary.metadata) shouldBe Map("is-test" -> "true").asRight
         }
 
         "return the object contentLength" in checkGetObject(existingBucket, existingKey) {
@@ -161,35 +160,34 @@ class S3Spec extends IntegrationSpec {
         // FIXME This test does not pass, but we have verified manually that the connection is getting disposed
         "return the object that after been consumed cannot be consumed again" ignore checkGetObject(
           existingBucket,
-          existingKey) { objOrError =>
+          existingKey
+        ) { objOrError =>
           objOrError.map { obj =>
             (obj.content.compile.toList >> obj.content.compile.toList.attempt).futureValue shouldBe a[
-              Left[_, _]]
+              Left[_, _]
+            ]
           }
         }
       }
 
       "the key does not exist" should {
 
-        "return a Left" in checkGetObject(existingBucket, notExistingKey) {
+        "return a Left" in checkGetObject(existingBucket, notExistingKey) { objOrError =>
+          objOrError shouldBe a[Left[_, _]]
+        }
+
+        "return NoSuchKey error code" in checkGetObject(existingBucket, notExistingKey) {
           objOrError =>
-            objOrError shouldBe a[Left[_, _]]
+            objOrError.left.map { error =>
+              error.code shouldBe Error.Code("NoSuchKey")
+            }
         }
 
-        "return NoSuchKey error code" in checkGetObject(
-          existingBucket,
-          notExistingKey) { objOrError =>
-          objOrError.left.map { error =>
-            error.code shouldBe Error.Code("NoSuchKey")
-          }
-        }
-
-        "return the given key as resource" in checkGetObject(
-          existingBucket,
-          notExistingKey) { objOrError =>
-          objOrError.left.map { error =>
-            error.key shouldBe notExistingKey.some
-          }
+        "return the given key as resource" in checkGetObject(existingBucket, notExistingKey) {
+          objOrError =>
+            objOrError.left.map { error =>
+              error.key shouldBe notExistingKey.some
+            }
         }
 
       }
@@ -197,22 +195,18 @@ class S3Spec extends IntegrationSpec {
 
     "the bucket does not exist" should {
 
-      "return a Left" in checkGetObject(nonExistingBucket, existingKey) {
+      "return a Left" in checkGetObject(nonExistingBucket, existingKey) { objOrError =>
+        objOrError shouldBe a[Left[_, _]]
+      }
+
+      "return NoSuchBucket error code" in checkGetObject(nonExistingBucket, existingKey) {
         objOrError =>
-          objOrError shouldBe a[Left[_, _]]
+          objOrError.left.map { error =>
+            error.code shouldBe Error.Code("NoSuchBucket")
+          }
       }
 
-      "return NoSuchBucket error code" in checkGetObject(
-        nonExistingBucket,
-        existingKey) { objOrError =>
-        objOrError.left.map { error =>
-          error.code shouldBe Error.Code("NoSuchBucket")
-        }
-      }
-
-      "return the given bucket" in checkGetObject(
-        nonExistingBucket,
-        existingKey) { objOrError =>
+      "return the given bucket" in checkGetObject(nonExistingBucket, existingKey) { objOrError =>
         objOrError.left.map { error =>
           error.bucketName shouldBe nonExistingBucket.some
         }
@@ -273,8 +267,7 @@ class S3Spec extends IntegrationSpec {
       "the key is nested" should {
         "succeeding" in {
 
-          val content = ObjectContent.fromByteArray[IO](
-            UUID.randomUUID().toString.getBytes(UTF_8))
+          val content = ObjectContent.fromByteArray[IO](UUID.randomUUID().toString.getBytes(UTF_8))
 
           withS3 { s3 =>
             s3.putObject(existingBucket, nestedKey, content)
@@ -286,8 +279,7 @@ class S3Spec extends IntegrationSpec {
       "the key has leading slash" should {
         "succeeding" in {
 
-          val content = ObjectContent.fromByteArray[IO](
-            UUID.randomUUID().toString.getBytes(UTF_8))
+          val content = ObjectContent.fromByteArray[IO](UUID.randomUUID().toString.getBytes(UTF_8))
 
           withS3 { s3 =>
             s3.putObject(existingBucket, slashLeadingKey, content)
@@ -299,8 +291,8 @@ class S3Spec extends IntegrationSpec {
       "the key does exist" should {
         "overwrite the existing key" in {
           withS3 { s3 =>
-            val content = ObjectContent.fromByteArray[IO](
-              UUID.randomUUID().toString.getBytes(UTF_8))
+            val content =
+              ObjectContent.fromByteArray[IO](UUID.randomUUID().toString.getBytes(UTF_8))
             for {
               _ <- s3.putObject(existingBucket, duplicateKey, content)
               result <- s3.putObject(existingBucket, duplicateKey, content)
@@ -317,7 +309,8 @@ class S3Spec extends IntegrationSpec {
           s3.putObject(
             nonExistingBucket,
             existingKey,
-            ObjectContent.fromByteArray(Array.fill(128 * 1026)(0: Byte)))
+            ObjectContent.fromByteArray(Array.fill(128 * 1026)(0: Byte))
+          )
         }.futureValue shouldBe a[Left[_, _]]
       }
 
@@ -325,15 +318,15 @@ class S3Spec extends IntegrationSpec {
         s3.putObject(
           nonExistingBucket,
           existingKey,
-          ObjectContent.fromByteArray(Array.fill(128 * 1026)(0: Byte)))
+          ObjectContent.fromByteArray(Array.fill(128 * 1026)(0: Byte))
+        )
       }.futureValue.left.map { error =>
         error.bucketName shouldBe nonExistingBucket.some
       }
     }
   }
 
-  def checkGetObject[A](bucket: Bucket, key: Key)(
-      f: Either[Error, Object[IO]] => A): A =
+  def checkGetObject[A](bucket: Bucket, key: Key)(f: Either[Error, Object[IO]] => A): A =
     withS3 { _.getObject(bucket, key).use(x => IO(f(x))) }.futureValue
 
   def withS3[A](f: S3[IO] => IO[A]): IO[A] = {
