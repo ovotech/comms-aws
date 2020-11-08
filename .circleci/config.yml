@@ -4,6 +4,9 @@ executors:
   docker:
     docker:
     - image: circleci/openjdk:11-jdk
+      auth:
+        username: $OVO_DOCKERHUB_USER
+        password: $OVO_DOCKERHUB_PASSWORD
     environment:
       JAVA_OPTS: "-Xmx1g -XX:MaxMetaspaceSize=1g -XX:MetaspaceSize=1g -XX:+CMSClassUnloadingEnabled"
       DEFAULT_AWS_REGION: "eu-west-1"
@@ -72,6 +75,8 @@ jobs:
 
     - checkout
 
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
+
     - restore_sbt_cache
 
     - run: sbt update
@@ -100,6 +105,7 @@ jobs:
     executor: docker
     steps:
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -120,6 +126,7 @@ jobs:
     steps:
 
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -140,6 +147,7 @@ jobs:
     steps:
 
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -160,6 +168,7 @@ jobs:
     steps:
 
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -180,6 +189,7 @@ jobs:
     steps:
 
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -200,6 +210,7 @@ jobs:
     steps:
 
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -219,6 +230,7 @@ jobs:
 
     steps:
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - attach_workspace:
         at: .
     - add_github_host_ssh_key
@@ -237,6 +249,7 @@ jobs:
 
     steps:
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - attach_workspace:
         at: .
     - restore_sbt_cache
@@ -248,33 +261,41 @@ workflows:
 
   main:
     jobs:
-    - build
+    - build:
+        context: ovo-internal-public
 
     - auth_unit_test:
+        context: ovo-internal-public
         requires:
         - build
 
     - common_unit_test:
+        context: ovo-internal-public
         requires:
         - build
     
     - s3_unit_test:
+        context: ovo-internal-public
         requires:
         - build
 
     - auth_integration_test:
+        context: ovo-internal-public
         requires:
         - build
 
     - common_integration_test:
+        context: ovo-internal-public
         requires:
         - build
     
     - s3_integration_test:
+        context: ovo-internal-public
         requires:
         - build
 
     - tag:
+        context: ovo-internal-public
         requires:
         - build
         - auth_unit_test
@@ -288,6 +309,7 @@ workflows:
             only: master
 
     - release:
+        context: ovo-internal-public
         requires:
         - tag
 
