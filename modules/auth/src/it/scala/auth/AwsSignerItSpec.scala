@@ -3,18 +3,19 @@ package auth
 
 import common._
 import common.model._
-import cats.effect.{IO, ContextShift}
+import cats.effect.{ContextShift, IO}
+
 import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.Method._
 import org.http4s.headers._
-import org.http4s.{Uri, Status, MediaType}
-import org.http4s.client.middleware.{ResponseLogger, RequestLogger}
-
+import org.http4s.{MediaType, Status, Uri}
+import org.http4s.client.middleware.{RequestLogger, ResponseLogger}
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.global
+
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProviderChain
 
 class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
 
@@ -27,18 +28,22 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
     "sign request valid for S3" in {
       withHttpClient { client =>
         val awsSigner = AwsSigner(
-          CredentialsProvider.fromAwsCredentialProvider[IO](
-            new DefaultAWSCredentialsProviderChain()),
+          CredentialsProvider.default[IO],
           Region.`eu-west-1`,
-          Service.S3)
+          Service.S3
+        )
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] =
+          RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] =
+          ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
         for {
-          req <- GET(Uri.unsafeFromString("https://s3-eu-west-1.amazonaws.com/ovo-comms-test/more.pdf"))
+          req <- GET(
+            Uri.unsafeFromString("https://s3-eu-west-1.amazonaws.com/ovo-comms-test/more.pdf")
+          )
           status <- signedClient.status(req)
         } yield {
           status.isSuccess shouldBe true
@@ -49,18 +54,22 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
     "sign request valid for S3 with nested paths" in {
       withHttpClient { client =>
         val awsSigner = AwsSigner(
-          CredentialsProvider.fromAwsCredentialProvider[IO](
-            new DefaultAWSCredentialsProviderChain()),
+          CredentialsProvider.default[IO],
           Region.`eu-west-1`,
-          Service.S3)
+          Service.S3
+        )
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] =
+          RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] =
+          ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
         for {
-          req <- GET(Uri.unsafeFromString("https://s3-eu-west-1.amazonaws.com/ovo-comms-test/test/more.pdf"))
+          req <- GET(
+            Uri.unsafeFromString("https://s3-eu-west-1.amazonaws.com/ovo-comms-test/test/more.pdf")
+          )
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -69,18 +78,20 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
     "sign request valid for ES GET" ignore {
       withHttpClient { client =>
         val awsSigner = AwsSigner(
-          CredentialsProvider.fromAwsCredentialProvider[IO](
-            new DefaultAWSCredentialsProviderChain()),
+          CredentialsProvider.default[IO],
           Region.`eu-west-1`,
-          Service("es"))
+          Service("es")
+        )
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] =
+          RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] =
+          ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
         for {
-          req <- GET(Uri.unsafeFromString(s"${esEndpoint}/audit-2018-09/_doc/foo"))
+          req <- GET(Uri.unsafeFromString(s"$esEndpoint/audit-2018-09/_doc/foo"))
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -89,13 +100,15 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
     "sign request valid for ES POST" ignore {
       withHttpClient { client =>
         val awsSigner = AwsSigner(
-          CredentialsProvider.fromAwsCredentialProvider[IO](
-            new DefaultAWSCredentialsProviderChain()),
+          CredentialsProvider.default[IO],
           Region.`eu-west-1`,
-          Service("es"))
+          Service("es")
+        )
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] =
+          RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] =
+          ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
@@ -110,7 +123,11 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString(s"${esEndpoint}/audit-2018-09/_doc/_search"), `Content-Type`(MediaType.application.json))
+          req <- POST(
+            body,
+            Uri.unsafeFromString(s"$esEndpoint/audit-2018-09/_doc/_search"),
+            `Content-Type`(MediaType.application.json)
+          )
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -119,13 +136,15 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
     "sign request valid for ES POST with multiple indexes" ignore {
       withHttpClient { client =>
         val awsSigner = AwsSigner(
-          CredentialsProvider.fromAwsCredentialProvider[IO](
-            new DefaultAWSCredentialsProviderChain()),
+          CredentialsProvider.default[IO],
           Region.`eu-west-1`,
-          Service("es"))
+          Service("es")
+        )
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] =
+          RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] =
+          ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
@@ -140,7 +159,13 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString(s"${esEndpoint}/audit-2018-09,audit-2018-10,audit-2018-11/_doc/_search?ignore_unavailable=true"), `Content-Type`(MediaType.application.json))
+          req <- POST(
+            body,
+            Uri.unsafeFromString(
+              s"$esEndpoint/audit-2018-09,audit-2018-10,audit-2018-11/_doc/_search?ignore_unavailable=true"
+            ),
+            `Content-Type`(MediaType.application.json)
+          )
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -149,13 +174,15 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
     "sign request valid for ES POST with query" ignore {
       withHttpClient { client =>
         val awsSigner = AwsSigner(
-          CredentialsProvider.fromAwsCredentialProvider[IO](
-            new DefaultAWSCredentialsProviderChain()),
+          CredentialsProvider.default[IO],
           Region.`eu-west-1`,
-          Service("es"))
+          Service("es")
+        )
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] =
+          RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] =
+          ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
@@ -170,7 +197,13 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString(s"${esEndpoint}/audit-2018-09/_doc/_search?ignore_unavailable=true"), `Content-Type`(MediaType.application.json))
+          req <- POST(
+            body,
+            Uri.unsafeFromString(
+              s"$esEndpoint/audit-2018-09/_doc/_search?ignore_unavailable=true"
+            ),
+            `Content-Type`(MediaType.application.json)
+          )
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -179,13 +212,15 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
     "sign request valid for ES POST with query and multiple parameters" ignore {
       withHttpClient { client =>
         val awsSigner = AwsSigner(
-          CredentialsProvider.fromAwsCredentialProvider[IO](
-            new DefaultAWSCredentialsProviderChain()),
+          CredentialsProvider.default[IO],
           Region.`eu-west-1`,
-          Service("es"))
+          Service("es")
+        )
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] =
+          RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] =
+          ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
@@ -200,7 +235,13 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString(s"${esEndpoint}/audit-2018-09/_doc/_search?ignore_unavailable=true&refresh=true"), `Content-Type`(MediaType.application.json))
+          req <- POST(
+            body,
+            Uri.unsafeFromString(
+              s"$esEndpoint/audit-2018-09/_doc/_search?ignore_unavailable=true&refresh=true"
+            ),
+            `Content-Type`(MediaType.application.json)
+          )
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -209,13 +250,15 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
     "sign request valid for ES POST with query and multiple parameters with comas and stars" ignore {
       withHttpClient { client =>
         val awsSigner = AwsSigner(
-          CredentialsProvider.fromAwsCredentialProvider[IO](
-            new DefaultAWSCredentialsProviderChain()),
+          CredentialsProvider.default[IO],
           Region.`eu-west-1`,
-          Service("es"))
+          Service("es")
+        )
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] =
+          RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] =
+          ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
@@ -230,23 +273,30 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString("/audit-2018-09/_doc/_search?ignore_unavailable=true&refresh=true&foo*=foo&bar,baz=baz"), `Content-Type`(MediaType.application.json))
+          req <- POST(
+            body,
+            Uri.unsafeFromString(
+              "/audit-2018-09/_doc/_search?ignore_unavailable=true&refresh=true&foo*=foo&bar,baz=baz"
+            ),
+            `Content-Type`(MediaType.application.json)
+          )
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
     }
 
-
     "sign request valid for ES POST with star in path" ignore {
       withHttpClient { client =>
         val awsSigner = AwsSigner(
-          CredentialsProvider.fromAwsCredentialProvider[IO](
-            new DefaultAWSCredentialsProviderChain()),
+          CredentialsProvider.default[IO],
           Region.`eu-west-1`,
-          Service("es"))
+          Service("es")
+        )
 
-        val requestLogger: Client[IO] => Client[IO] = RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
-        val responseLogger: Client[IO] => Client[IO] = ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val requestLogger: Client[IO] => Client[IO] =
+          RequestLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
+        val responseLogger: Client[IO] => Client[IO] =
+          ResponseLogger[IO](logHeaders = true, logBody = true, redactHeadersWhen = _ => false)
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
@@ -261,7 +311,11 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(body, Uri.unsafeFromString(s"${esEndpoint}/audit-*/_doc/_search"), `Content-Type`(MediaType.application.json))
+          req <- POST(
+            body,
+            Uri.unsafeFromString(s"$esEndpoint/audit-*/_doc/_search"),
+            `Content-Type`(MediaType.application.json)
+          )
           status <- signedClient.status(req)
         } yield status
       }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
@@ -269,8 +323,7 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
   }
 
   def withHttpClient[A](f: Client[IO] => IO[A]): IO[A] = {
-    BlazeClientBuilder[IO](global)
-      .resource
+    BlazeClientBuilder[IO](global).resource
       .use(f)
   }
 
