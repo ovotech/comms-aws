@@ -17,43 +17,41 @@
 package com.ovoenergy.comms.aws
 package common
 
-import model._
-import Credentials._
-
 import cats.effect.Sync
 import cats.implicits._
-import com.amazonaws.auth.{
-  AWSSessionCredentials,
-  AWSCredentialsProvider,
-  DefaultAWSCredentialsProviderChain
-}
+
+import software.amazon.awssdk.auth.credentials._
+
+import model._
+import Credentials._
 
 trait CredentialsProvider[F[_]] {
   def get: F[Credentials]
 }
 
 object CredentialsProvider {
-
   def default[F[_]: Sync]: CredentialsProvider[F] =
-    fromAwsCredentialProvider[F](new DefaultAWSCredentialsProviderChain)
+    fromAwsCredentialProvider[F](
+      AwsCredentialsProviderChain.of(DefaultCredentialsProvider.create())
+    )
 
   // TODO refresh creds automagically
   def fromAwsCredentialProvider[F[_]](
-      awsCredentialsProvider: AWSCredentialsProvider
+      awsCredentialsProvider: AwsCredentialsProvider
   )(implicit F: Sync[F]): CredentialsProvider[F] =
     new CredentialsProvider[F] {
       override def get: F[Credentials] =
-        F.delay(awsCredentialsProvider.getCredentials).map {
-          case creds: AWSSessionCredentials =>
+        F.delay(awsCredentialsProvider.resolveCredentials()).map {
+          case creds: AwsSessionCredentials =>
             Credentials(
-              AccessKeyId(creds.getAWSAccessKeyId),
-              SecretAccessKey(creds.getAWSSecretKey),
-              SessionToken(creds.getSessionToken).some
+              AccessKeyId(creds.accessKeyId()),
+              SecretAccessKey(creds.secretAccessKey()),
+              SessionToken(creds.sessionToken()).some
             )
           case creds =>
             Credentials(
-              AccessKeyId(creds.getAWSAccessKeyId),
-              SecretAccessKey(creds.getAWSSecretKey),
+              AccessKeyId(creds.accessKeyId()),
+              SecretAccessKey(creds.secretAccessKey()),
               None
             )
         }

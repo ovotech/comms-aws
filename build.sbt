@@ -1,8 +1,8 @@
 lazy val fs2Version = "2.5.0"
 lazy val catsEffectVersion = "2.0.0"
 lazy val catsVersion = "2.0.0"
-lazy val scalatestVersion = "3.2.3"
-lazy val awsSdkVersion = "1.11.940"
+lazy val scalatestVersion = "3.2.0"
+lazy val awsSdkVersion = "2.15.66"
 lazy val scalacheckVersion = "1.15.2"
 lazy val scalatestScalacheckVersion = "3.1.1.1"
 lazy val slf4jVersion = "1.7.30"
@@ -123,7 +123,8 @@ lazy val common = (project in file("modules/common"))
   .settings(automateHeaderSettings(IntegrationTest))
   .settings(
     libraryDependencies ++= Seq(
-      "com.amazonaws" % "aws-java-sdk-core" % awsSdkVersion % Optional
+      "software.amazon.awssdk" % "auth" % awsSdkVersion,
+      "software.amazon.awssdk" % "sdk-core" % awsSdkVersion % Optional
     )
   )
 
@@ -141,7 +142,7 @@ lazy val auth = (project in file("modules/auth"))
   .settings(
     libraryDependencies ++= Seq(
       "commons-codec" % "commons-codec" % commonCodecVersion,
-      "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion % s"$Test,$IntegrationTest"
+      "software.amazon.awssdk" % "s3" % awsSdkVersion % s"$Test,$IntegrationTest"
     )
   )
 
@@ -161,6 +162,6 @@ lazy val s3 = (project in file("modules/s3"))
       "org.http4s" %% "http4s-scala-xml" % http4sVersion,
       "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion,
       "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
-      "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion % s"$Test,$IntegrationTest"
+      "software.amazon.awssdk" % "s3" % awsSdkVersion % s"$Test,$IntegrationTest"
     )
   )
