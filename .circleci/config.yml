@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  snyk: snyk/snyk@0.0.10
+
 executors:
   docker:
     docker:
@@ -67,6 +70,18 @@ commands:
           git config user.email "hello.comms@ovoenergy.com"     
 
 jobs:
+  snyk_test:
+    docker:
+      - image: circleci/openjdk:8-jdk
+    steps:
+      - checkout
+      - snyk/scan:
+          project: '${CIRCLE_PROJECT_REPONAME}'
+          severity-threshold: high
+          fail-on-issues: false
+          monitor-on-build: true
+          organization: 'oep-comms'
+
   build:
 
     executor: docker
@@ -261,6 +276,13 @@ workflows:
 
   main:
     jobs:
+      - snyk_test:
+          context: ovo-internal-public
+          filters:
+            branches:
+              only:
+                - master
+
     - build:
         context: ovo-internal-public
 
