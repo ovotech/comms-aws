@@ -276,11 +276,11 @@ workflows:
 
   main:
     jobs:
-      - snyk_test:
-          context: ovo-internal-public
-          filters:
-            branches:
-              only:
+    - snyk_test:
+        context: ovo-internal-public
+        filters:
+          branches:
+            only:
                 - master
 
     - build:
