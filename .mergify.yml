@@ -39,7 +39,6 @@ pull_request_rules:
     conditions:
       - author=ovo-scala-steward
       - 'body~=labels:.*semver-minor'
-      - 'status-success=ci/circleci: snyk_test'
       - 'status-success=ci/circleci: build'
       - 'status-success=ci/circleci: auth_unit_test'
       - 'status-success=ci/circleci: common_unit_test'
@@ -57,7 +56,6 @@ pull_request_rules:
     conditions:
       - author=ovo-scala-steward
       - 'body~=labels:.*semver-patch'
-      - 'status-success=ci/circleci: snyk_test'
       - 'status-success=ci/circleci: build'
       - 'status-success=ci/circleci: auth_unit_test'
       - 'status-success=ci/circleci: common_unit_test'
