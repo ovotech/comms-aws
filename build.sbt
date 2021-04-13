@@ -25,8 +25,10 @@ lazy val noPublishSettings = Seq(
   publishArtifact := false
 )
 
+lazy val publicArtifactory = "Artifactory Realm" at "https://kaluza.jfrog.io/artifactory/maven"
+
 lazy val publishOptions = Seq(
-  publishTo := Some("Artifactory Realm" at "https://kaluza.jfrog.io/artifactory/maven"),
+  publishTo := Some(publicArtifactory),
   credentials += {
     for {
       usr <- sys.env.get("ARTIFACTORY_USER")
@@ -93,7 +95,7 @@ lazy val root = (project in file("."))
         scalaVersion := "2.13.2",
         crossScalaVersions += "2.12.10",
         resolvers ++= Seq(
-          "Artifactory" at "https://kaluza.jfrog.io/artifactory/maven",
+          publicArtifactory,
         ),
         libraryDependencies ++= Seq(
           "org.http4s" %% "http4s-core" % http4sVersion,
