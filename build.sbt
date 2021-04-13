@@ -1,3 +1,7 @@
+import sbtrelease.ExtraReleaseCommands
+import sbtrelease.ReleaseStateTransformations._
+import sbtrelease.tagsonly.TagsOnly._
+
 lazy val fs2Version = "2.5.3"
 lazy val catsEffectVersion = "2.0.0"
 lazy val catsVersion = "2.0.0"
@@ -21,29 +25,31 @@ lazy val noPublishSettings = Seq(
   publishArtifact := false
 )
 
-lazy val releaseOptions = Seq(
-  releaseEarlyWith := BintrayPublisher,
-  releaseEarlyEnableSyncToMaven := false,
-  releaseEarlyNoGpg := true,
-  //  releaseEarlyEnableSyncToMaven := false,
-  bintrayOrganization := Some("ovotech"),
-  bintrayRepository := "maven",
-  bintrayPackageLabels := Seq(
-    "aws",
-    "cats",
-    "cats-effect",
-    "http4s",
-    "fs2",
-    "scala"
-  ),
-  version ~= (_.replace('+', '-')),
-  dynver ~= (_.replace('+', '-'))
+lazy val publicArtifactory = "Artifactory Realm" at "https://kaluza.jfrog.io/artifactory/maven"
+
+lazy val publishOptions = Seq(
+  publishTo := Some(publicArtifactory),
+  credentials += {
+    for {
+      usr <- sys.env.get("ARTIFACTORY_USER")
+      password <- sys.env.get("ARTIFACTORY_PASS")
+    } yield Credentials("Artifactory Realm", "kaluza.jfrog.io", usr, password)
+  }.getOrElse(Credentials(Path.userHome / ".ivy2" / ".credentials")),
+  releaseProcess := Seq[ReleaseStep](
+    checkSnapshotDependencies,
+    releaseStepCommand(ExtraReleaseCommands.initialVcsChecksCommand),
+    setVersionFromTags(releaseTagPrefix.value),
+    runClean,
+    tagRelease,
+    publishArtifacts,
+    pushTagsOnly
+  )
 )
 
 lazy val root = (project in file("."))
   .aggregate(auth, common, s3)
   .configs(IntegrationTest)
-  .settings(releaseOptions)
+  .settings(publishOptions)
   .settings(
     name := "comms-aws",
     inThisBuild(
@@ -89,7 +95,7 @@ lazy val root = (project in file("."))
         scalaVersion := "2.13.2",
         crossScalaVersions += "2.12.10",
         resolvers ++= Seq(
-          Resolver.bintrayRepo("ovotech", "maven")
+          publicArtifactory,
         ),
         libraryDependencies ++= Seq(
           "org.http4s" %% "http4s-core" % http4sVersion,
@@ -114,7 +120,7 @@ lazy val root = (project in file("."))
 lazy val common = (project in file("modules/common"))
   .enablePlugins(AutomateHeaderPlugin)
   .configs(IntegrationTest)
-  .settings(releaseOptions)
+  .settings(publishOptions)
   .settings(
     name := "comms-aws-common",
     scalacOptions -= "-Xfatal-warnings" // enable all options from sbt-tpolecat except fatal warnings
@@ -132,7 +138,7 @@ lazy val auth = (project in file("modules/auth"))
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest")
   .configs(IntegrationTest)
-  .settings(releaseOptions)
+  .settings(publishOptions)
   .settings(
     name := "comms-aws-auth",
     scalacOptions -= "-Xfatal-warnings" // enable all options from sbt-tpolecat except fatal warnings
@@ -150,7 +156,7 @@ lazy val s3 = (project in file("modules/s3"))
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest", auth)
   .configs(IntegrationTest)
-  .settings(releaseOptions)
+  .settings(publishOptions)
   .settings(
     name := "comms-aws-s3",
     scalacOptions -= "-Xfatal-warnings" // enable all options from sbt-tpolecat except fatal warnings

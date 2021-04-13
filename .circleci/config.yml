@@ -269,7 +269,7 @@ jobs:
         at: .
     - restore_sbt_cache
     - run:
-        command: sbt +releaseEarly
+        command: sbt +publish
         no_output_timeout: 20m
 
 workflows:
@@ -277,42 +277,58 @@ workflows:
   main:
     jobs:
     - snyk_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         filters:
           branches:
             only:
                 - master
 
     - build:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
 
     - auth_unit_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
     - common_unit_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
     
     - s3_unit_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
     - auth_integration_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
     - common_integration_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
     
     - s3_integration_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
@@ -331,7 +347,9 @@ workflows:
             only: master
 
     - release:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - tag
 
