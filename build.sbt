@@ -6,9 +6,9 @@ lazy val fs2Version = "2.5.5"
 lazy val catsEffectVersion = "2.0.0"
 lazy val catsVersion = "2.0.0"
 lazy val scalatestVersion = "3.2.8"
-lazy val awsSdkVersion = "2.16.48"
-lazy val scalacheckVersion = "1.15.3"
-lazy val scalatestScalacheckVersion = "3.1.1.1"
+lazy val awsSdkVersion = "2.16.54"
+lazy val scalacheckVersion = "1.15.4"
+lazy val scalatestScalacheckVersion = "3.2.8.0"
 lazy val slf4jVersion = "1.7.30"
 lazy val log4jVersion = "2.14.1"
 lazy val http4sVersion = "0.21.22"
@@ -107,7 +107,7 @@ lazy val root = (project in file("."))
         libraryDependencies ++= Seq(
           "org.scalatest" %% "scalatest" % scalatestVersion,
           "org.scalacheck" %% "scalacheck" % scalacheckVersion,
-          "org.scalatestplus" %% "scalacheck-1-14" % scalatestScalacheckVersion,
+          "org.scalatestplus" %% "scalacheck-1-15" % scalatestScalacheckVersion,
           "org.apache.logging.log4j" % "log4j-api" % log4jVersion,
           "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4jVersion,
           "org.http4s" %% "http4s-blaze-client" % http4sVersion
