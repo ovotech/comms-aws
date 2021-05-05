@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  snyk: snyk/snyk@0.0.10
+
 executors:
   docker:
     docker:
@@ -67,6 +70,18 @@ commands:
           git config user.email "hello.comms@ovoenergy.com"     
 
 jobs:
+  snyk_test:
+    docker:
+      - image: circleci/openjdk:8-jdk
+    steps:
+      - checkout
+      - snyk/scan:
+          project: '${CIRCLE_PROJECT_REPONAME}'
+          severity-threshold: high
+          fail-on-issues: false
+          monitor-on-build: true
+          organization: 'oep-comms'
+
   build:
 
     executor: docker
@@ -254,43 +269,66 @@ jobs:
         at: .
     - restore_sbt_cache
     - run:
-        command: sbt +releaseEarly
+        command: sbt +publish
         no_output_timeout: 20m
 
 workflows:
 
   main:
     jobs:
+    - snyk_test:
+        context:
+          - ovo-internal-public
+          - comms-internal-build
+        filters:
+          branches:
+            only:
+                - master
+
     - build:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
 
     - auth_unit_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
     - common_unit_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
     
     - s3_unit_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
     - auth_integration_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
     - common_integration_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
     
     - s3_integration_test:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
@@ -309,7 +347,9 @@ workflows:
             only: master
 
     - release:
-        context: ovo-internal-public
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - tag
 
