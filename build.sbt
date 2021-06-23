@@ -2,16 +2,16 @@ import sbtrelease.ExtraReleaseCommands
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.tagsonly.TagsOnly._
 
-lazy val fs2Version = "2.5.5"
+lazy val fs2Version = "2.5.6"
 lazy val catsEffectVersion = "2.0.0"
 lazy val catsVersion = "2.0.0"
 lazy val scalatestVersion = "3.2.0"
-lazy val awsSdkVersion = "2.16.54"
+lazy val awsSdkVersion = "2.16.87"
 lazy val scalacheckVersion = "1.15.4"
-lazy val scalatestScalacheckVersion = "3.1.4.0"
-lazy val slf4jVersion = "1.7.30"
+lazy val scalatestScalacheckVersion = "3.1.1.1"
+lazy val slf4jVersion = "1.7.31"
 lazy val log4jVersion = "2.14.1"
-lazy val http4sVersion = "0.21.22"
+lazy val http4sVersion = "0.21.24"
 lazy val scalaXmlVersion = "1.3.0"
 lazy val circeVersion = "0.12.2"
 lazy val scodecBitsVersion = "1.1.12"
