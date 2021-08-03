@@ -27,7 +27,7 @@ import org.http4s.headers._
 import org.http4s.Method._
 import org.http4s.Header.Raw
 import org.http4s.client.Client
-import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.blaze.client.BlazeClientBuilder
 import org.http4s.client.dsl.Http4sClientDsl
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
