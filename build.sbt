@@ -3,8 +3,7 @@ import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.tagsonly.TagsOnly._
 
 lazy val fs2Version = "2.5.9"
-lazy val catsEffectVersion = "2.0.0"
-lazy val catsVersion = "2.0.0"
+lazy val catsEffectVersion = "2.5.1"
 lazy val scalatestVersion = "3.2.0"
 lazy val awsSdkVersion = "2.17.29"
 lazy val scalacheckVersion = "1.15.4"
