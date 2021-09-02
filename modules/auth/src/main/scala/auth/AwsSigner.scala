@@ -238,7 +238,7 @@ object AwsSigner {
       val (canonicalHeaders, signedHeaders) = {
 
         val grouped = request.headers.toList.groupBy(_.name)
-        val combined = grouped.view.mapValues(
+        val combined = grouped.mapValues(
           _.map(h => MultipleSpaceRegex.replaceAllIn(h.value, " ").trim)
             .mkString(",")
         )
