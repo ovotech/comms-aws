@@ -238,7 +238,7 @@ object AwsSigner {
       val (canonicalHeaders, signedHeaders) = {
 
         val grouped = request.headers.toList.groupBy(_.name)
-        val combined = grouped.mapValues(
+        val combined = grouped.view.mapValues(
           _.map(h => MultipleSpaceRegex.replaceAllIn(h.value, " ").trim)
             .mkString(",")
         )
@@ -361,14 +361,14 @@ class AwsSigner[F[_]](
 
     val sign: Request[F] => Resource[F, Response[F]] = { request =>
       for {
-        credentials <- Resource.liftF(credentialsProvider.get)
-        now <- Resource.liftF(
+        credentials <- Resource.eval(credentialsProvider.get)
+        now <- Resource.eval(
           Sync[F].delay(
             Instant.now(Clock.systemUTC()).truncatedTo(ChronoUnit.SECONDS)
           )
         )
-        fixed <- Resource.liftF(fixRequest(request, credentials, now))
-        signed <- Resource.liftF(
+        fixed <- Resource.eval(fixRequest(request, credentials, now))
+        signed <- Resource.eval(
           signRequest(fixed, credentials, region, service)
         )
         result <- client.run(signed)
