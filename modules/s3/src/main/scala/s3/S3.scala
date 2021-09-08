@@ -92,7 +92,7 @@ object S3 {
         bucket: Bucket,
         key: Key
     ): Resource[F, Either[Error, Object[F]]] =
-      Resource.liftF(GET(uri(bucket, key))).flatMap { req =>
+      Resource.eval(GET(uri(bucket, key))).flatMap { req =>
         signedClient.run(req).evalMap {
           case r if r.status.isSuccess =>
             parseObjectSummary(r).value.rethrow // TODO should lack of etag be an error here?
@@ -208,12 +208,12 @@ object S3 {
             )
           }
           .fold[DecodeResult[F, Error]](
-            DecodeResult.failure(
+            DecodeResult.failureT(
               InvalidMessageBodyFailure(
                 "Code, RequestId and Message XML elements are mandatory"
               )
             )
-          )(error => DecodeResult.success(error))
+          )(error => DecodeResult.successT(error))
       }
 
     implicit def objectPutDecoder: EntityDecoder[F, ObjectPut] =
@@ -228,10 +228,10 @@ object S3 {
             .map(t => ObjectPut(Etag(t.tag.tag)))
             // TODO InvalidMessageBodyFailure is not correct here as there is no body
             .fold[DecodeResult[F, ObjectPut]](
-              DecodeResult.failure(
+              DecodeResult.failureT(
                 InvalidMessageBodyFailure("The ETag header must be present")
               )
-            )(ok => DecodeResult.success(ok))
+            )(ok => DecodeResult.successT(ok))
         }
 
         override val consumes: Set[MediaRange] =
@@ -247,9 +247,9 @@ object S3 {
 
       val eTag: DecodeResult[F, Etag] = response.headers
         .get(ETag)
-        .map(t => DecodeResult.success[F, Etag](Etag(t.tag.tag)))
+        .map(t => DecodeResult.successT[F, Etag](Etag(t.tag.tag)))
         .getOrElse(
-          DecodeResult.failure[F, Etag](
+          DecodeResult.failureT[F, Etag](
             MalformedMessageBodyFailure(
               "ETag header must be present on the response"
             )
@@ -260,28 +260,28 @@ object S3 {
         .get(`Content-Type`)
         .map(_.mediaType)
         .fold(
-          DecodeResult.failure[F, MediaType](
+          DecodeResult.failureT[F, MediaType](
             MalformedMessageBodyFailure(
               "The response needs to contain Media-Type header"
             )
           )
-        )(DecodeResult.success[F, MediaType])
+        )(DecodeResult.successT[F, MediaType])
 
       val charset: DecodeResult[F, Option[Charset]] = response.headers
         .get(`Content-Type`)
         .flatMap(_.charset)
-        .traverse(DecodeResult.success[F, Charset])
+        .traverse(DecodeResult.successT[F, Charset])
 
       val contentLength = response.headers
         .get(`Content-Length`)
         .map(_.length)
         .fold(
-          DecodeResult.failure[F, Long](
+          DecodeResult.failureT[F, Long](
             MalformedMessageBodyFailure(
               "The response needs to contain Content-Length header"
             )
           )
-        )(DecodeResult.success[F, Long])
+        )(DecodeResult.successT[F, Long])
 
       val metadata: Map[String, String] = response.headers.toList.collect {
         case h if h.name.value.toLowerCase.startsWith(`X-Amz-Meta-`) =>
