@@ -40,6 +40,7 @@ import headers._
 import model._
 import common._
 import common.model._
+import fs2.text
 
 trait S3[F[_]] {
 
@@ -98,7 +99,10 @@ object S3 {
             parseObjectSummary(r).value.rethrow // TODO should lack of etag be an error here?
               .map { summary => Object(summary, r.body).asRight[Error] }
           case r if r.status.responseClass == Status.ServerError =>
-            Sync[F].raiseError[Either[Error, Object[F]]](RetriableServerError)
+            fOfBodyString(r).flatMap(errorBodyString =>
+              Sync[F].raiseError[Either[Error, Object[F]]](RetriableServerError(errorBodyString))
+            )
+
           case r =>
             r.as[Error].map(_.asLeft[Object[F]])
         }
@@ -115,7 +119,10 @@ object S3 {
           case r if r.status.isSuccess =>
             r.as[ObjectSummary].map(_.asRight[Error])
           case r if r.status.responseClass == Status.ServerError =>
-            Sync[F].raiseError[Either[Error, ObjectSummary]](RetriableServerError)
+            fOfBodyString(r).flatMap { errorBodyString =>
+              Sync[F]
+                .raiseError[Either[Error, ObjectSummary]](RetriableServerError(errorBodyString))
+            }
           case r =>
             r.as[Error].map(_.asLeft[ObjectSummary])
         })
@@ -165,7 +172,9 @@ object S3 {
         result <- withRetry(signedClient.run(request).use {
           case r if r.status.isSuccess => r.as[ObjectPut].map(_.asRight[Error])
           case r if r.status.responseClass == Status.ServerError =>
-            Sync[F].raiseError[Either[Error, ObjectPut]](RetriableServerError)
+            fOfBodyString(r).flatMap { errorBodyString =>
+              Sync[F].raiseError[Either[Error, ObjectPut]](RetriableServerError(errorBodyString))
+            }
           case r => r.as[Error].map(_.asLeft[ObjectPut])
         })
       } yield result
@@ -301,7 +310,13 @@ object S3 {
 
   }
 
-  private case object RetriableServerError extends Exception
+  private def fOfBodyString[F[_]: Sync: Timer](r: Response[F]) = {
+    r.body.through(text.utf8Decode).compile.string
+  }
+
+  private case class RetriableServerError(bodyContent: String) extends Exception {
+    override def getMessage = bodyContent
+  }
 
   case class RetryPolicy(
       delay: FiniteDuration,
@@ -317,7 +332,7 @@ object S3 {
         (prevDuration.toMillis * 1.25).milliseconds
       },
       25, {
-        case RetriableServerError => true
+        case RetriableServerError(_) => true
         case _ => false
       }
     )

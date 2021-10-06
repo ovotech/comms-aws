@@ -4,8 +4,8 @@ import sbtrelease.tagsonly.TagsOnly._
 
 lazy val fs2Version = "2.5.9"
 lazy val catsEffectVersion = "2.5.1"
-lazy val scalatestVersion = "3.2.10"
-lazy val awsSdkVersion = "2.17.46"
+lazy val scalatestVersion = "3.2.0"
+lazy val awsSdkVersion = "2.17.52"
 lazy val scalacheckVersion = "1.15.4"
 lazy val scalatestScalacheckVersion = "3.1.1.1"
 lazy val slf4jVersion = "1.7.32"
