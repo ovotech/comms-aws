@@ -28,6 +28,7 @@ import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.Method._
 import org.http4s.{HttpDate, Request, Uri}
 import org.http4s.syntax.all._
+import org.typelevel.ci._
 
 /*
   Validate AwsSigner with test cases from 'AWS Signature Version 4 Test Suite'
@@ -80,7 +81,7 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
           testCase <- EitherT(getTestCase[IO](testFile.getAbsolutePath))
           (request, expectedSignature) = testCase
           res <- EitherT.right[String](withSignRequest(IO(request)) { signed =>
-            val signature = signed.headers.get("Authorization".ci).get.value
+            val signature = signed.headers.get(ci"Authorization").get.value
             IO(signature shouldBe expectedSignature)
           })
         } yield res).value.map {
@@ -123,7 +124,7 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
         rows.map(_.split(":", 2).toList).collect {
           case "X-Amz-Date" :: v :: Nil =>
             `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(parseTestCaseDate(v)))
-          case k :: v :: Nil => Header(k, v)
+          case k :: v :: Nil => Header.Raw(CIString(k), v)
         }
       (requestText match {
         case RequestRe(requestSection, _, body) =>
