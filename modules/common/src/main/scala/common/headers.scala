@@ -23,19 +23,20 @@ import java.time._
 
 import org.http4s._
 import syntax.all._
-import Header.Raw
-import util.{CaseInsensitiveString, Writer}
+import Header.Raw.Raw
+import util.Writer
 
 import cats.implicits._
+import org.typelevel.ci.{ CIString, _ }
 
 object headers extends HttpCodecs {
 
   object `X-Amz-Date` extends HeaderKey.Singleton {
     type HeaderT = `X-Amz-Date`
 
-    val name: CaseInsensitiveString = "X-Amz-Date".ci
+    val name: CIString = ci"X-Amz-Date"
 
-    def matchHeader(header: Header): Option[`X-Amz-Date`] = header match {
+    def matchHeader(header: Header.Raw): Option[`X-Amz-Date`] = header match {
       case h: `X-Amz-Date` => h.some
       case Raw(n, _) if n == name =>
         header.parsed.asInstanceOf[`X-Amz-Date`].some
@@ -58,7 +59,7 @@ object headers extends HttpCodecs {
     }
   }
 
-  final case class `X-Amz-Date`(date: HttpDate) extends Header.Parsed {
+  final case class `X-Amz-Date`(date: HttpDate) extends Header.Raw.Parsed {
     def key: `X-Amz-Date`.type = `X-Amz-Date`
 
     def renderValue(writer: Writer): writer.type = writer << date
@@ -67,9 +68,9 @@ object headers extends HttpCodecs {
   object `X-Amz-Content-SHA256` extends HeaderKey.Singleton {
     type HeaderT = `X-Amz-Content-SHA256`
 
-    val name: CaseInsensitiveString = "X-Amz-Content-SHA256".ci
+    val name: CIString = ci"X-Amz-Content-SHA256"
 
-    def matchHeader(header: Header): Option[`X-Amz-Content-SHA256`] =
+    def matchHeader(header: Header.Raw): Option[`X-Amz-Content-SHA256`] =
       header match {
         case h: `X-Amz-Content-SHA256` => h.some
         case Raw(n, _) if n == name =>
@@ -81,7 +82,7 @@ object headers extends HttpCodecs {
       `X-Amz-Content-SHA256`(s).asRight
   }
 
-  final case class `X-Amz-Content-SHA256`(hashedContent: String) extends Header.Parsed {
+  final case class `X-Amz-Content-SHA256`(hashedContent: String) extends Header.Raw.Parsed {
     def key: `X-Amz-Content-SHA256`.type = `X-Amz-Content-SHA256`
 
     def renderValue(writer: Writer): writer.type = writer << hashedContent
@@ -90,9 +91,9 @@ object headers extends HttpCodecs {
   object `X-Amz-Security-Token` extends HeaderKey.Singleton {
     type HeaderT = `X-Amz-Security-Token`
 
-    val name: CaseInsensitiveString = "X-Amz-Security-Token".ci
+    val name: CIString = ci"X-Amz-Security-Token"
 
-    def matchHeader(header: Header): Option[`X-Amz-Security-Token`] =
+    def matchHeader(header: Header.Raw): Option[`X-Amz-Security-Token`] =
       header match {
         case h: `X-Amz-Security-Token` => h.some
         case Raw(n, _) if n == name =>
@@ -104,7 +105,7 @@ object headers extends HttpCodecs {
       HttpCodec[SessionToken].parse(s).map(`X-Amz-Security-Token`.apply)
   }
 
-  final case class `X-Amz-Security-Token`(sessionToken: SessionToken) extends Header.Parsed {
+  final case class `X-Amz-Security-Token`(sessionToken: SessionToken) extends Header.Raw.Parsed {
     def key: `X-Amz-Security-Token`.type = `X-Amz-Security-Token`
 
     def renderValue(writer: Writer): writer.type = writer << sessionToken
@@ -113,9 +114,9 @@ object headers extends HttpCodecs {
   object `X-Amz-Target` extends HeaderKey.Singleton {
     type HeaderT = `X-Amz-Target`
 
-    val name: CaseInsensitiveString = "X-Amz-Target".ci
+    val name: CIString = ci"X-Amz-Target"
 
-    def matchHeader(header: Header): Option[`X-Amz-Target`] =
+    def matchHeader(header: Header.Raw): Option[`X-Amz-Target`] =
       header match {
         case h: `X-Amz-Target` => h.some
         case Raw(n, _) if n == name =>
@@ -127,7 +128,7 @@ object headers extends HttpCodecs {
       `X-Amz-Target`(s).asRight
   }
 
-  final case class `X-Amz-Target`(target: String) extends Header.Parsed {
+  final case class `X-Amz-Target`(target: String) extends Header.Raw.Parsed {
     def key: `X-Amz-Target`.type = `X-Amz-Target`
 
     def renderValue(writer: Writer): writer.type = writer << target
