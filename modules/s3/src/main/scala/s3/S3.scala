@@ -25,9 +25,9 @@ import org.http4s.syntax.all._
 import org.http4s.{Service => _, headers => _, _}
 import org.http4s.headers._
 import org.http4s.Method._
-import org.http4s.Header.Raw
+import org.http4s.Header.Raw.Raw
 import org.http4s.client.Client
-import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.blaze.client.BlazeClientBuilder
 import org.http4s.client.dsl.Http4sClientDsl
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -41,6 +41,7 @@ import model._
 import common._
 import common.model._
 import fs2.text
+import org.typelevel.ci._
 
 trait S3[F[_]] {
 
@@ -140,13 +141,9 @@ object S3 {
         Sync[F]
           .fromEither(`Content-Length`.fromLong(content.contentLength))
           .map { contentLength =>
-            Headers
-              .of(
-                contentLength,
-                `Content-Type`(content.mediaType, content.charset)
-              )
+            Headers(contentLength, `Content-Type`(content.mediaType, content.charset))
               .put(metadata.map {
-                case (k, v) => Raw(s"${`X-Amz-Meta-`}$k".ci, v)
+                case (k, v) => Raw(CIString(s"${`X-Amz-Meta-`}$k"), v)
               }.toSeq: _*)
           }
 
@@ -293,8 +290,8 @@ object S3 {
         )(DecodeResult.successT[F, Long])
 
       val metadata: Map[String, String] = response.headers.toList.collect {
-        case h if h.name.value.toLowerCase.startsWith(`X-Amz-Meta-`) =>
-          h.name.value.substring(`X-Amz-Meta-`.length) -> h.value
+        case h if h.name.toString.toLowerCase.startsWith(`X-Amz-Meta-`) =>
+          h.name.toString.substring(`X-Amz-Meta-`.length) -> h.value
       }.toMap
 
       (eTag, mediaType, charset, contentLength).mapN { (eTag, mediaType, charset, contentLength) =>
