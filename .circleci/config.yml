@@ -1,9 +1,15 @@
 version: 2.1
 
+orbs:
+  snyk: snyk/snyk@1.1.2
+
 executors:
   docker:
     docker:
     - image: circleci/openjdk:11-jdk
+      auth:
+        username: $OVO_DOCKERHUB_USER
+        password: $OVO_DOCKERHUB_PASSWORD
     environment:
       JAVA_OPTS: "-Xmx1g -XX:MaxMetaspaceSize=1g -XX:MetaspaceSize=1g -XX:+CMSClassUnloadingEnabled"
       DEFAULT_AWS_REGION: "eu-west-1"
@@ -64,6 +70,25 @@ commands:
           git config user.email "hello.comms@ovoenergy.com"     
 
 jobs:
+  job_required_for_mergify:
+    docker:
+      - image: "alpine:latest"
+    steps:
+      - run:
+          command: exit 0
+
+  snyk_test:
+    docker:
+      - image: circleci/openjdk:8-jdk
+    steps:
+      - checkout
+      - snyk/scan:
+          project: '${CIRCLE_PROJECT_REPONAME}'
+          severity-threshold: high
+          fail-on-issues: false
+          monitor-on-build: true
+          organization: 'oep-comms'
+
   build:
 
     executor: docker
@@ -71,6 +96,8 @@ jobs:
     steps:
 
     - checkout
+
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
 
     - restore_sbt_cache
 
@@ -100,6 +127,7 @@ jobs:
     executor: docker
     steps:
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -120,6 +148,7 @@ jobs:
     steps:
 
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -140,6 +169,7 @@ jobs:
     steps:
 
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -160,6 +190,7 @@ jobs:
     steps:
 
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -180,6 +211,7 @@ jobs:
     steps:
 
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -200,6 +232,7 @@ jobs:
     steps:
 
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - restore_sbt_cache
     - attach_workspace:
         at: .
@@ -219,6 +252,7 @@ jobs:
 
     steps:
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - attach_workspace:
         at: .
     - add_github_host_ssh_key
@@ -237,44 +271,90 @@ jobs:
 
     steps:
     - checkout
+    - run: docker login --username $OVO_DOCKERHUB_USER --password $OVO_DOCKERHUB_PASSWORD
     - attach_workspace:
         at: .
     - restore_sbt_cache
     - run:
-        command: sbt +releaseEarly
+        command: sbt +publish
         no_output_timeout: 20m
 
 workflows:
 
   main:
     jobs:
-    - build
+    - snyk_test:
+        context:
+          - ovo-internal-public
+          - comms-internal-build
+        filters:
+          branches:
+            only:
+                - master
+
+    - build:
+        context:
+          - ovo-internal-public
+          - comms-internal-build
 
     - auth_unit_test:
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
     - common_unit_test:
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
     
     - s3_unit_test:
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
     - auth_integration_test:
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
     - common_integration_test:
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
     
     - s3_integration_test:
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - build
 
+    - job_required_for_mergify:
+        requires:
+          - auth_unit_test
+          - common_unit_test
+          - s3_unit_test
+          - auth_integration_test
+          - common_integration_test
+          - s3_integration_test
+        filters:
+          branches:
+            ignore:
+              - master
+              - deploy-to-uat
+
     - tag:
+        context: ovo-internal-public
         requires:
         - build
         - auth_unit_test
@@ -288,6 +368,9 @@ workflows:
             only: master
 
     - release:
+        context:
+          - ovo-internal-public
+          - comms-internal-build
         requires:
         - tag
 

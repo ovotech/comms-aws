@@ -33,7 +33,7 @@ import fs2.hash._
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.Method._
 import org.http4s.headers._
-import org.http4s.{HttpDate, MediaType, Request, Uri}
+import org.http4s.{HttpDate, MediaType, Request}
 import AwsSigner._
 import org.http4s.syntax.all._
 
@@ -66,7 +66,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
   "Request with no body" should {
     "not have empty body stream" in {
       (for {
-        req <- GET.apply(Uri.uri("https://example.com"))
+        req <- GET.apply(uri"https://example.com")
         last <- req.body.compile.last
       } yield last).futureValue shouldBe None
     }
@@ -92,7 +92,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
           val expectedXAmzDate = `X-Amz-Date`(HttpDate.unsafeFromInstant(now))
 
           withFixedRequest(
-            GET(Uri.uri("http://example.com"))
+            GET(uri"http://example.com")
               .map(_.removeHeader(Date).removeHeader(`X-Amz-Date`)),
             now
           ) { r =>
@@ -111,7 +111,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
             HttpDate.unsafeFromInstant(now.minus(5, ChronoUnit.MINUTES))
           )
           withFixedRequest(
-            GET(Uri.uri("http://example.com"))
+            GET(uri"http://example.com")
               .map(_.removeHeader(Date).putHeaders(expectedXAmzDate)),
             now
           ) { r =>
@@ -130,7 +130,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         val expectedDate =
           Date(HttpDate.unsafeFromInstant(now.minus(5, ChronoUnit.MINUTES)))
         withFixedRequest(
-          GET(Uri.uri("http://example.com"))
+          GET(uri"http://example.com")
             .map(_.removeHeader(`X-Amz-Date`).putHeaders(expectedDate)),
           now
         ) { r =>
@@ -148,7 +148,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         "not add Host header" in {
           val expectedHost = Host("foo", 5555)
           withFixedRequest(
-            GET(Uri.uri("http://example.com"))
+            GET(uri"http://example.com")
               .map(_.putHeaders(expectedHost))
           ) { r =>
             IO {
@@ -160,7 +160,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
 
       "the uri is relative" should {
         "fail the effect" in {
-          withFixedRequest(GET(Uri.uri("/foo/bar")))(_ => IO.unit).attempt
+          withFixedRequest(GET(uri"/foo/bar"))(_ => IO.unit).attempt
             .unsafeRunSync() shouldBe a[Left[_, _]]
         }
       }
@@ -178,7 +178,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         )
         val expectedXAmzSecurityToken = `X-Amz-Security-Token`(sessionToken)
         withFixedRequest(
-          GET(Uri.uri("http://example.com")),
+          GET(uri"http://example.com"),
           credentials = credentials
         ) { r =>
           IO {
@@ -196,7 +196,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         val credentials =
           Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR"))
         withFixedRequest(
-          GET(Uri.uri("http://example.com")),
+          GET(uri"http://example.com"),
           credentials = credentials
         ) { r =>
           IO {
@@ -211,7 +211,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
     "Date header is not defined" when {
       "X-Amz-Date is not defined" should {
         "return a failed effect" in {
-          withSignRequest(GET(Uri.uri("http://example.com")))(_ => IO.unit).attempt.futureValue shouldBe a[
+          withSignRequest(GET(uri"http://example.com"))(_ => IO.unit).attempt.futureValue shouldBe a[
             Left[_, _]
           ]
         }
@@ -220,7 +220,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
   }
 
   "AwsSigner.signRequest" should {
-    "sign a vannilla GET request correctly" in {
+    "sign a vanilla GET request correctly" in {
 
       val expectedAuthorizationValue =
         "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=host;x-amz-date, Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31"
@@ -235,7 +235,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         .atZone(ZoneOffset.UTC)
 
       val request = GET(
-        Uri.uri("/"),
+        uri"/",
         Host("example.amazonaws.com"),
         `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
       )
@@ -268,7 +268,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         .atZone(ZoneOffset.UTC)
 
       val request = POST(
-        Uri.uri("/"),
+        uri"/",
         Host("example.amazonaws.com"),
         `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
       )
@@ -303,7 +303,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       val request = POST
         .apply(
           "Param1=value1",
-          Uri.uri("/"),
+          uri"/",
           Host("example.amazonaws.com"),
           `Content-Type`(MediaType.application.`x-www-form-urlencoded`),
           `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))

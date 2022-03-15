@@ -19,7 +19,6 @@ package s3
 
 import cats.implicits._
 import cats.effect._
-
 import java.nio.ByteBuffer
 
 import org.http4s.syntax.all._
@@ -30,8 +29,9 @@ import org.http4s.Header.Raw
 import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.client.dsl.Http4sClientDsl
-
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
+
 import scalaxml._
 import scala.xml.Elem
 
@@ -40,6 +40,7 @@ import headers._
 import model._
 import common._
 import common.model._
+import fs2.text
 
 trait S3[F[_]] {
 
@@ -58,7 +59,7 @@ trait S3[F[_]] {
 
 object S3 {
 
-  def resource[F[_]: ConcurrentEffect](
+  def resource[F[_]: ConcurrentEffect: Timer](
       credentialsProvider: CredentialsProvider[F],
       region: Region,
       endpoint: Option[Uri] = None,
@@ -69,27 +70,22 @@ object S3 {
     )
   }
 
-  def apply[F[_]: Sync](
+  def apply[F[_]: Sync: Timer](
       client: Client[F],
       credentialsProvider: CredentialsProvider[F],
       region: Region,
-      endpoint: Option[Uri] = None
+      endpoint: Option[Uri] = None,
+      retryPolicy: RetryPolicy = RetryPolicy.default
   ): S3[F] = new S3[F] with Http4sClientDsl[F] {
 
     val signer = AwsSigner[F](credentialsProvider, region, Service.S3)
     val signedClient = signer(client)
-    val baseEndpoint = endpoint.getOrElse {
-      if (region == Region.`us-east-1`)
-        Uri.uri("https://s3.amazonaws.com")
-      else
-        Uri.unsafeFromString(s"https://s3-${region.value}.amazonaws.com")
-      // TODO use the total version, we may need a S3 builder that returns F[S3[F]]
+    def baseEndpoint(bucket: Bucket) = endpoint.getOrElse {
+      Uri.unsafeFromString(s"https://${bucket.name}.s3.${region.value}.amazonaws.com")
     }
 
     def uri(bucket: Bucket, key: Key) = {
-      // TODO It only supports path style access ATM
-      val bucketEndpoint = baseEndpoint / bucket.name
-
+      val bucketEndpoint = baseEndpoint(bucket)
       key.value.split("/", -1).foldLeft(bucketEndpoint) { (acc, x) => acc / x }
     }
 
@@ -97,13 +93,18 @@ object S3 {
         bucket: Bucket,
         key: Key
     ): Resource[F, Either[Error, Object[F]]] =
-      Resource.liftF(GET(uri(bucket, key))).flatMap { req =>
-        signedClient.run(req).evalMap { response =>
-          if (response.status.isSuccess) {
-            parseObjectSummary(response).value.rethrow // TODO should lack of etag be an error here?
-              .map { summary => Object(summary, response.body).asRight[Error] }
-          } else
-            response.as[Error].map(_.asLeft[Object[F]])
+      Resource.eval(GET(uri(bucket, key))).flatMap { req =>
+        signedClient.run(req).evalMap {
+          case r if r.status.isSuccess =>
+            parseObjectSummary(r).value.rethrow // TODO should lack of etag be an error here?
+              .map { summary => Object(summary, r.body).asRight[Error] }
+          case r if r.status.responseClass == Status.ServerError =>
+            fOfBodyString(r).flatMap(errorBodyString =>
+              Sync[F].raiseError[Either[Error, Object[F]]](RetriableServerError(errorBodyString))
+            )
+
+          case r =>
+            r.as[Error].map(_.asLeft[Object[F]])
         }
       }
 
@@ -114,12 +115,17 @@ object S3 {
 
       for {
         request <- GET(uri(bucket, key))
-        result <- signedClient.fetch(request) {
+        result <- withRetry(signedClient.run(request).use {
           case r if r.status.isSuccess =>
             r.as[ObjectSummary].map(_.asRight[Error])
+          case r if r.status.responseClass == Status.ServerError =>
+            fOfBodyString(r).flatMap { errorBodyString =>
+              Sync[F]
+                .raiseError[Either[Error, ObjectSummary]](RetriableServerError(errorBodyString))
+            }
           case r =>
             r.as[Error].map(_.asLeft[ObjectSummary])
-        }
+        })
       } yield result
     }
 
@@ -163,12 +169,22 @@ object S3 {
         hs <- initHeaders
         contentAsSingleChunk <- extractContent
         request <- PUT(contentAsSingleChunk, uri(bucket, key), hs.toList: _*)
-        result <- signedClient.fetch(request) { r =>
-          if (r.status.isSuccess) r.as[ObjectPut].map(_.asRight[Error])
-          else r.as[Error].map(_.asLeft[ObjectPut])
-        }
+        result <- withRetry(signedClient.run(request).use {
+          case r if r.status.isSuccess => r.as[ObjectPut].map(_.asRight[Error])
+          case r if r.status.responseClass == Status.ServerError =>
+            fOfBodyString(r).flatMap { errorBodyString =>
+              Sync[F].raiseError[Either[Error, ObjectPut]](RetriableServerError(errorBodyString))
+            }
+          case r => r.as[Error].map(_.asLeft[ObjectPut])
+        })
       } yield result
     }
+
+    private def withRetry[A](fa: F[A]): F[A] =
+      fs2.Stream
+        .retry(fa, retryPolicy.delay, retryPolicy.nextDelay, retryPolicy.maxAttempts)
+        .compile
+        .lastOrError
 
     implicit def errorEntityDecoder: EntityDecoder[F, Error] =
       EntityDecoder[F, Elem].flatMapR { elem =>
@@ -201,12 +217,12 @@ object S3 {
             )
           }
           .fold[DecodeResult[F, Error]](
-            DecodeResult.failure(
+            DecodeResult.failureT(
               InvalidMessageBodyFailure(
                 "Code, RequestId and Message XML elements are mandatory"
               )
             )
-          )(error => DecodeResult.success(error))
+          )(error => DecodeResult.successT(error))
       }
 
     implicit def objectPutDecoder: EntityDecoder[F, ObjectPut] =
@@ -221,10 +237,10 @@ object S3 {
             .map(t => ObjectPut(Etag(t.tag.tag)))
             // TODO InvalidMessageBodyFailure is not correct here as there is no body
             .fold[DecodeResult[F, ObjectPut]](
-              DecodeResult.failure(
+              DecodeResult.failureT(
                 InvalidMessageBodyFailure("The ETag header must be present")
               )
-            )(ok => DecodeResult.success(ok))
+            )(ok => DecodeResult.successT(ok))
         }
 
         override val consumes: Set[MediaRange] =
@@ -240,9 +256,9 @@ object S3 {
 
       val eTag: DecodeResult[F, Etag] = response.headers
         .get(ETag)
-        .map(t => DecodeResult.success[F, Etag](Etag(t.tag.tag)))
+        .map(t => DecodeResult.successT[F, Etag](Etag(t.tag.tag)))
         .getOrElse(
-          DecodeResult.failure[F, Etag](
+          DecodeResult.failureT[F, Etag](
             MalformedMessageBodyFailure(
               "ETag header must be present on the response"
             )
@@ -253,28 +269,28 @@ object S3 {
         .get(`Content-Type`)
         .map(_.mediaType)
         .fold(
-          DecodeResult.failure[F, MediaType](
+          DecodeResult.failureT[F, MediaType](
             MalformedMessageBodyFailure(
               "The response needs to contain Media-Type header"
             )
           )
-        )(DecodeResult.success[F, MediaType])
+        )(DecodeResult.successT[F, MediaType])
 
       val charset: DecodeResult[F, Option[Charset]] = response.headers
         .get(`Content-Type`)
         .flatMap(_.charset)
-        .traverse(DecodeResult.success[F, Charset])
+        .traverse(DecodeResult.successT[F, Charset])
 
       val contentLength = response.headers
         .get(`Content-Length`)
         .map(_.length)
         .fold(
-          DecodeResult.failure[F, Long](
+          DecodeResult.failureT[F, Long](
             MalformedMessageBodyFailure(
               "The response needs to contain Content-Length header"
             )
           )
-        )(DecodeResult.success[F, Long])
+        )(DecodeResult.successT[F, Long])
 
       val metadata: Map[String, String] = response.headers.toList.collect {
         case h if h.name.value.toLowerCase.startsWith(`X-Amz-Meta-`) =>
@@ -294,4 +310,31 @@ object S3 {
 
   }
 
+  private def fOfBodyString[F[_]: Sync: Timer](r: Response[F]) = {
+    r.body.through(text.utf8Decode).compile.string
+  }
+
+  private case class RetriableServerError(bodyContent: String) extends Exception {
+    override def getMessage = bodyContent
+  }
+
+  case class RetryPolicy(
+      delay: FiniteDuration,
+      nextDelay: FiniteDuration => FiniteDuration,
+      maxAttempts: Int,
+      retriable: Throwable => Boolean
+  )
+
+  object RetryPolicy {
+    // about 50s in total
+    val default = RetryPolicy(
+      50.milliseconds, { prevDuration: FiniteDuration =>
+        (prevDuration.toMillis * 1.25).milliseconds
+      },
+      25, {
+        case RetriableServerError(_) => true
+        case _ => false
+      }
+    )
+  }
 }
