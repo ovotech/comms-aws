@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  snyk: snyk/snyk@0.0.10
+  snyk: snyk/snyk@1.1.2
 
 executors:
   docker:
@@ -70,6 +70,13 @@ commands:
           git config user.email "hello.comms@ovoenergy.com"     
 
 jobs:
+  job_required_for_mergify:
+    docker:
+      - image: "alpine:latest"
+    steps:
+      - run:
+          command: exit 0
+
   snyk_test:
     docker:
       - image: circleci/openjdk:8-jdk
@@ -331,6 +338,20 @@ workflows:
           - comms-internal-build
         requires:
         - build
+
+    - job_required_for_mergify:
+        requires:
+          - auth_unit_test
+          - common_unit_test
+          - s3_unit_test
+          - auth_integration_test
+          - common_integration_test
+          - s3_integration_test
+        filters:
+          branches:
+            ignore:
+              - master
+              - deploy-to-uat
 
     - tag:
         context: ovo-internal-public
