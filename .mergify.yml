@@ -1,3 +1,7 @@
+queue_rules:
+  - name: default
+    conditions:
+      - 'check-success=ci/circleci: job_required_for_mergify'
 pull_request_rules:
   - name: label ovo-scala-steward's pre-release version PRs
     conditions:
@@ -38,34 +42,22 @@ pull_request_rules:
   - name: automatically merge ovo-scala-steward's minor version PRs
     conditions:
       - author=ovo-scala-steward
-      - 'body~=labels:.*semver-minor'
-      - 'status-success=ci/circleci: build'
-      - 'status-success=ci/circleci: auth_unit_test'
-      - 'status-success=ci/circleci: common_unit_test'
-      - 'status-success=ci/circleci: s3_unit_test'
-      - 'status-success=ci/circleci: auth_integration_test'
-      - 'status-success=ci/circleci: common_integration_test'
-      - 'status-success=ci/circleci: s3_integration_test'
+      - body~=labels:.*semver-minor
+      - 'check-success=ci/circleci: job_required_for_mergify'
     actions:
       review:
         type: APPROVE
-      merge:
-        strict: smart
+      queue:
+        name: default
       delete_head_branch: {}
   - name: automatically merge ovo-scala-steward's patch version PRs
     conditions:
       - author=ovo-scala-steward
-      - 'body~=labels:.*semver-patch'
-      - 'status-success=ci/circleci: build'
-      - 'status-success=ci/circleci: auth_unit_test'
-      - 'status-success=ci/circleci: common_unit_test'
-      - 'status-success=ci/circleci: s3_unit_test'
-      - 'status-success=ci/circleci: auth_integration_test'
-      - 'status-success=ci/circleci: common_integration_test'
-      - 'status-success=ci/circleci: s3_integration_test'
+      - body~=labels:.*semver-patch
+      - 'check-success=ci/circleci: job_required_for_mergify'
     actions:
       review:
         type: APPROVE
-      merge:
-        strict: smart
+      queue:
+        name: default
       delete_head_branch: {}
