@@ -139,10 +139,7 @@ object model {
         chunked = false
       )
 
-    def fromPath[F[_]: Sync: ContextShift](
-        path: Path,
-        blocker: Blocker
-    ): F[ObjectContent[F]] =
+    def fromPath[F[_]: Sync: ContextShift](path: Path): F[ObjectContent[F]] =
       Sync[F]
         .delay(Files.size(path))
         .flatTap { contentLength =>

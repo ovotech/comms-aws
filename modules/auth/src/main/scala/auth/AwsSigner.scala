@@ -23,6 +23,7 @@ import common.model._
 import headers.{`X-Amz-Content-SHA256`, `X-Amz-Security-Token`, `X-Amz-Date`}
 import cats.effect.{Sync, Resource}
 import cats.implicits._
+import org.typelevel.ci._
 
 import scala.util.matching.Regex
 import java.net.URLEncoder
@@ -41,7 +42,6 @@ import org.http4s.{Request, HttpDate, Response}
 import org.http4s.Header.Raw
 import org.http4s.client.Client
 import org.http4s.headers.{Date, Host}
-import org.http4s.syntax.all._
 
 import org.apache.commons.codec.binary.Hex
 
@@ -124,9 +124,9 @@ object AwsSigner {
 
   def extractXAmzDateOrDate[F[_]](request: Request[F]): Option[Instant] = {
     request.headers
-      .get(`X-Amz-Date`)
+      .get[`X-Amz-Date`]
       .map(_.date)
-      .orElse(request.headers.get(Date).map(_.date))
+      .orElse(request.headers.get[Date].map(_.date))
       .map(_.toInstant)
   }
 
@@ -140,7 +140,7 @@ object AwsSigner {
       extractXAmzDateOrDate(request).getOrElse(fallbackRequestDateTime)
 
     def addHostHeader(r: Request[F]): F[Request[F]] =
-      if (r.headers.get(Host).isEmpty) {
+      if (r.headers.get[Host].isEmpty) {
         val uri = r.uri
         F.fromOption(
             uri.host,
@@ -154,7 +154,7 @@ object AwsSigner {
       }
 
     def addXAmzDateHeader(r: Request[F]): F[Request[F]] =
-      (if (r.headers.get(Date).isEmpty && r.headers.get(`X-Amz-Date`).isEmpty) {
+      (if (r.headers.get[Date].isEmpty && r.headers.get[`X-Amz-Date`].isEmpty) {
          r.putHeaders(`X-Amz-Date`(HttpDate.unsafeFromInstant(requestDateTime)))
        } else {
          r
@@ -166,7 +166,7 @@ object AwsSigner {
         .pure[F]
 
     def addHashedBody(r: Request[F]): F[Request[F]] =
-      if (r.headers.get(`X-Amz-Content-SHA256`).isEmpty) {
+      if (r.headers.get[`X-Amz-Content-SHA256`].isEmpty) {
 
         // TODO Add chunking support for S3
         def unChunk(request: Request[F]): F[Request[F]] =
@@ -207,7 +207,7 @@ object AwsSigner {
 
     val hashedPayloadF: F[String] = {
       val headerValue = request.headers
-        .get(`X-Amz-Content-SHA256`)
+        .get[`X-Amz-Content-SHA256`]
         .map(_.hashedContent)
 
       headerValue.fold(hashBody(request))(_.pure[F])
@@ -237,20 +237,22 @@ object AwsSigner {
 
       val (canonicalHeaders, signedHeaders) = {
 
-        val grouped = request.headers.toList.groupBy(_.name)
-        val combined = grouped.mapValues(
-          _.map(h => MultipleSpaceRegex.replaceAllIn(h.value, " ").trim)
-            .mkString(",")
-        )
+        val grouped = request.headers.headers.groupBy(_.name)
+        val combined = grouped.view
+          .mapValues(
+            _.map(h => MultipleSpaceRegex.replaceAllIn(h.value, " ").trim)
+              .mkString(",")
+          )
+          .toMap
 
         val canonical = combined.toSeq
           .sortBy(_._1)
-          .map { case (k, v) => s"${k.value.toLowerCase}:$v\n" }
+          .map { case (k, v) => s"${k.toString.toLowerCase}:$v\n" }
           .mkString("")
 
         val signed: String =
-          request.headers.toList
-            .map(_.name.value.toLowerCase)
+          request.headers.headers
+            .map(_.name.toString.toLowerCase)
             .toSeq
             .distinct
             .sorted
@@ -264,9 +266,11 @@ object AwsSigner {
         val method = request.method.name.toUpperCase
 
         val canonicalUri = {
-          val absolutePath =
-            if (request.uri.path.startsWith("/")) request.uri.path
-            else "/" ++ request.uri.path
+          val absolutePath = {
+            val stringPath = request.uri.path.renderString
+            if (stringPath.startsWith("/")) stringPath
+            else "/" ++ stringPath
+          }
 
           // you do not normalize URI paths for requests to Amazon S3
           val normalizedPath = if (service != Service.S3) {
@@ -335,7 +339,7 @@ object AwsSigner {
         val authorizationHeaderValue =
           s"$algorithm Credential=${credentials.accessKeyId.value}/$scope, SignedHeaders=$signedHeaders, Signature=$signature"
 
-        Raw("Authorization".ci, authorizationHeaderValue)
+        Raw(ci"Authorization", authorizationHeaderValue)
       }
 
       request.putHeaders(authorizationHeader)

@@ -21,11 +21,14 @@ import cats.effect.IO
 import org.scalatest.concurrent.Futures
 
 import scala.util.{Failure, Success}
+import cats.effect.unsafe.IORuntime
 
 trait IOFutures extends Futures {
 
   implicit def convertIO[T](io: IO[T]): FutureConcept[T] =
     new FutureConcept[T] {
+
+      implicit val runtime = IORuntime.global
 
       private val futureFromIo = io.unsafeToFuture()
 

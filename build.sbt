@@ -2,16 +2,16 @@ import sbtrelease.ExtraReleaseCommands
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.tagsonly.TagsOnly._
 
-lazy val fs2Version = "2.5.10"
-lazy val catsEffectVersion = "2.5.1"
+lazy val fs2Version = "3.2.0"
+lazy val catsEffectVersion = "3.3.5"
 lazy val scalatestVersion = "3.2.0"
 lazy val awsSdkVersion = "2.17.103"
 lazy val scalacheckVersion = "1.15.4"
 lazy val scalatestScalacheckVersion = "3.1.1.1"
 lazy val slf4jVersion = "1.7.32"
 lazy val log4jVersion = "2.17.1"
-lazy val http4sVersion = "0.21.31"
-lazy val scalaXmlVersion = "1.3.0"
+lazy val http4sVersion = "0.23.10"
+/* lazy val scalaXmlVersion = "1.3.0" */
 lazy val circeVersion = "0.12.2"
 lazy val scodecBitsVersion = "1.1.12"
 lazy val commonCodecVersion = "1.14"
@@ -46,7 +46,8 @@ lazy val publishOptions = Seq(
 )
 
 lazy val root = (project in file("."))
-  .aggregate(auth, common, s3)
+  /* .aggregate(auth, common, s3) */
+  .aggregate(auth, common)
   .configs(IntegrationTest)
   .settings(publishOptions)
   .settings(
@@ -151,22 +152,22 @@ lazy val auth = (project in file("modules/auth"))
     )
   )
 
-lazy val s3 = (project in file("modules/s3"))
-  .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest", auth)
-  .configs(IntegrationTest)
-  .settings(publishOptions)
-  .settings(
-    name := "comms-aws-s3",
-    scalacOptions -= "-Xfatal-warnings" // enable all options from sbt-tpolecat except fatal warnings
-  )
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings))
-  .settings(automateHeaderSettings(IntegrationTest))
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-scala-xml" % http4sVersion,
-      "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion,
-      "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
-      "software.amazon.awssdk" % "s3" % awsSdkVersion % s"$Test,$IntegrationTest"
-    )
-  )
+/* lazy val s3 = (project in file("modules/s3")) */
+/*   .enablePlugins(AutomateHeaderPlugin) */
+/*   .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest", auth) */
+/*   .configs(IntegrationTest) */
+/*   .settings(publishOptions) */
+/*   .settings( */
+/*     name := "comms-aws-s3", */
+/*     scalacOptions -= "-Xfatal-warnings" // enable all options from sbt-tpolecat except fatal warnings */
+/*   ) */
+/*   .settings(inConfig(IntegrationTest)(Defaults.itSettings)) */
+/*   .settings(automateHeaderSettings(IntegrationTest)) */
+/*   .settings( */
+/*     libraryDependencies ++= Seq( */
+/*       "org.http4s" %% "http4s-scala-xml" % http4sVersion, */
+/*       /1* "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion, *1/ */
+/*       "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional, */
+/*       "software.amazon.awssdk" % "s3" % awsSdkVersion % s"$Test,$IntegrationTest" */
+/*     ) */
+/*   ) */

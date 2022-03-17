@@ -80,7 +80,7 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
           testCase <- EitherT(getTestCase[IO](testFile.getAbsolutePath))
           (request, expectedSignature) = testCase
           res <- EitherT.right[String](withSignRequest(IO(request)) { signed =>
-            val signature = signed.headers.get("Authorization".ci).get.value
+            val signature = signed.headers.get("Authorization".ci).get.head
             IO(signature shouldBe expectedSignature)
           })
         } yield res).value.map {
@@ -119,11 +119,11 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
     def parseRequest(requestText: String): F[Either[String, Request[F]]] = {
       val RequestRe = "(?s)(.+?)(\n\n(.+))?".r
       val RequestLineRe = "(GET|POST) (.+) HTTP/1.1".r
-      def headers(rows: List[String]) =
+      def headers(rows: List[String]): List[Header.ToRaw] =
         rows.map(_.split(":", 2).toList).collect {
           case "X-Amz-Date" :: v :: Nil =>
             `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(parseTestCaseDate(v)))
-          case k :: v :: Nil => Header(k, v)
+          case k :: v :: Nil => Header.Raw.apply(k.ci, v)
         }
       (requestText match {
         case RequestRe(requestSection, _, body) =>
@@ -136,7 +136,7 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
               val request = Request[F](
                 method = method,
                 uri = Uri.unsafeFromString(uri),
-                headers = Headers(headers(headersRows))
+                headers = Headers(headers(headersRows): _*)
               )
               Right(
                 Option(body).map(b => request.withEntity(b)).getOrElse(request)

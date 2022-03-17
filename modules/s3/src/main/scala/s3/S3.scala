@@ -22,7 +22,7 @@ import cats.effect._
 import java.nio.ByteBuffer
 
 import org.http4s.syntax.all._
-import org.http4s.{Service => _, headers => _, _}
+import org.http4s.{headers => _, _}
 import org.http4s.headers._
 import org.http4s.Method._
 import org.http4s.Header.Raw
@@ -41,6 +41,7 @@ import model._
 import common._
 import common.model._
 import fs2.text
+import cats.effect.Temporal
 
 trait S3[F[_]] {
 
@@ -59,7 +60,7 @@ trait S3[F[_]] {
 
 object S3 {
 
-  def resource[F[_]: ConcurrentEffect: Timer](
+  def resource[F[_]: Async: Temporal](
       credentialsProvider: CredentialsProvider[F],
       region: Region,
       endpoint: Option[Uri] = None,
@@ -70,7 +71,7 @@ object S3 {
     )
   }
 
-  def apply[F[_]: Sync: Timer](
+  def apply[F[_]: Sync: Temporal](
       client: Client[F],
       credentialsProvider: CredentialsProvider[F],
       region: Region,
@@ -310,7 +311,7 @@ object S3 {
 
   }
 
-  private def fOfBodyString[F[_]: Sync: Timer](r: Response[F]) = {
+  private def fOfBodyString[F[_]: Sync: Temporal](r: Response[F]) = {
     r.body.through(text.utf8Decode).compile.string
   }
 
