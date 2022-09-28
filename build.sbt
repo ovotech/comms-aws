@@ -2,14 +2,14 @@ import sbtrelease.ExtraReleaseCommands
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.tagsonly.TagsOnly._
 
-lazy val fs2Version = "2.5.10"
+lazy val fs2Version = "2.5.11"
 lazy val catsEffectVersion = "2.5.1"
 lazy val scalatestVersion = "3.2.0"
-lazy val awsSdkVersion = "2.17.149"
+lazy val awsSdkVersion = "2.17.187"
 lazy val scalacheckVersion = "1.15.4"
 lazy val scalatestScalacheckVersion = "3.1.1.1"
 lazy val slf4jVersion = "1.7.32"
-lazy val log4jVersion = "2.17.1"
+lazy val log4jVersion = "2.17.2"
 lazy val http4sVersion = "0.21.31"
 lazy val scalaXmlVersion = "1.3.0"
 lazy val circeVersion = "0.12.2"
@@ -91,8 +91,8 @@ lazy val root = (project in file("."))
             "scm:git:git@github.com:ovotech/comms-aws.git"
           )
         ),
-        scalaVersion := "2.13.2",
-        crossScalaVersions += "2.12.10",
+        scalaVersion := "2.13.9",
+        crossScalaVersions += "2.12.17",
         resolvers ++= Seq(
           publicArtifactory,
         ),
