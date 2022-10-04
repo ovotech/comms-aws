@@ -21,10 +21,11 @@ import model._
 
 import org.http4s._
 import syntax.all._
-import Header.Raw
-import util.{CaseInsensitiveString, Writer}
+import Header.Raw.Raw
+import util.Writer
 
 import cats.implicits._
+import org.typelevel.ci.{ CIString, _ }
 
 trait HttpCodecs {
 
@@ -52,9 +53,9 @@ object headers extends HttpCodecs {
   object `X-Amz-Storage-Class` extends HeaderKey.Singleton {
     type HeaderT = `X-Amz-Storage-Class`
 
-    val name: CaseInsensitiveString = "X-Amz-Storage-Class".ci
+    val name: CIString = ci"X-Amz-Storage-Class"
 
-    def matchHeader(header: Header): Option[`X-Amz-Storage-Class`] =
+    def matchHeader(header: Header.Raw): Option[`X-Amz-Storage-Class`] =
       header match {
         case h: `X-Amz-Storage-Class` => h.some
         case Raw(n, _) if n == name =>
@@ -67,7 +68,7 @@ object headers extends HttpCodecs {
 
   }
 
-  final case class `X-Amz-Storage-Class`(storageClass: StorageClass) extends Header.Parsed {
+  final case class `X-Amz-Storage-Class`(storageClass: StorageClass) extends Header.Raw.Parsed {
     def key: `X-Amz-Storage-Class`.type = `X-Amz-Storage-Class`
 
     def renderValue(writer: Writer): writer.type = writer << storageClass
