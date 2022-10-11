@@ -25,7 +25,7 @@ import Header.Raw.Raw
 import util.Writer
 
 import cats.implicits._
-import org.typelevel.ci.{ CIString, _ }
+import org.typelevel.ci.{CIString, _}
 
 trait HttpCodecs {
 
