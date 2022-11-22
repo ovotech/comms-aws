@@ -41,6 +41,7 @@ import model._
 import common._
 import common.model._
 import fs2.text
+import fs2.text.utf8
 
 trait S3[F[_]] {
 
@@ -311,7 +312,7 @@ object S3 {
   }
 
   private def fOfBodyString[F[_]: Sync: Timer](r: Response[F]) = {
-    r.body.through(text.utf8Decode).compile.string
+    r.body.through(utf8.decode).compile.string
   }
 
   private case class RetriableServerError(bodyContent: String) extends Exception {
