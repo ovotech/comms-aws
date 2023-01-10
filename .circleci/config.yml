@@ -6,7 +6,7 @@ orbs:
 executors:
   docker:
     docker:
-    - image: circleci/openjdk:11-jdk
+    - image: cimg/openjdk:11.0.17
       auth:
         username: $OVO_DOCKERHUB_USER
         password: $OVO_DOCKERHUB_PASSWORD
@@ -15,15 +15,6 @@ executors:
       DEFAULT_AWS_REGION: "eu-west-1"
       AWS_REGION: "eu-west-1"
 
-  machine:
-    machine:
-      enabled: true
-      image: circleci/classic:edge
-
-    environment:
-      JAVA_OPTS: "-Xmx1g -XX:MaxMetaspaceSize=1g -XX:MetaspaceSize=1g -XX:+CMSClassUnloadingEnabled"
-      DEFAULT_AWS_REGION: "eu-west-1"
-      AWS_REGION: "eu-west-1"
 
 commands:
   generate_sbt_cache_key:
@@ -78,8 +69,7 @@ jobs:
           command: exit 0
 
   snyk_test:
-    docker:
-      - image: circleci/openjdk:8-jdk
+    executor: docker
     steps:
       - checkout
       - snyk/scan:
@@ -322,6 +312,7 @@ workflows:
         context:
           - ovo-internal-public
           - comms-internal-build
+          - comms-internal-lt
         requires:
         - build
 
@@ -336,6 +327,7 @@ workflows:
         context:
           - ovo-internal-public
           - comms-internal-build
+          - comms-internal-lt
         requires:
         - build
 
