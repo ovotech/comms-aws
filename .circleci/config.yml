@@ -312,7 +312,7 @@ workflows:
         context:
           - ovo-internal-public
           - comms-internal-build
-          - comms-internal-lt
+          - comms-internal-prd
         requires:
         - build
 
@@ -327,7 +327,7 @@ workflows:
         context:
           - ovo-internal-public
           - comms-internal-build
-          - comms-internal-lt
+          - comms-internal-prd
         requires:
         - build
 
