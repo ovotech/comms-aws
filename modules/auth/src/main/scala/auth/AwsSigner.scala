@@ -38,12 +38,13 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import fs2.hash._
 import org.http4s.{Request, HttpDate, Response}
-import org.http4s.Header.Raw
+import org.http4s.Header.Raw.Raw
 import org.http4s.client.Client
 import org.http4s.headers.{Date, Host}
 import org.http4s.syntax.all._
 
 import org.apache.commons.codec.binary.Hex
+import org.typelevel.ci._
 
 object AwsSigner {
 
@@ -245,12 +246,12 @@ object AwsSigner {
 
         val canonical = combined.toSeq
           .sortBy(_._1)
-          .map { case (k, v) => s"${k.value.toLowerCase}:$v\n" }
+          .map { case (k, v) => s"${k.toString.toLowerCase}:$v\n" }
           .mkString("")
 
         val signed: String =
           request.headers.toList
-            .map(_.name.value.toLowerCase)
+            .map(_.name.toString.toLowerCase)
             .toSeq
             .distinct
             .sorted
@@ -335,7 +336,7 @@ object AwsSigner {
         val authorizationHeaderValue =
           s"$algorithm Credential=${credentials.accessKeyId.value}/$scope, SignedHeaders=$signedHeaders, Signature=$signature"
 
-        Raw("Authorization".ci, authorizationHeaderValue)
+        Raw(ci"Authorization", authorizationHeaderValue)
       }
 
       request.putHeaders(authorizationHeader)
