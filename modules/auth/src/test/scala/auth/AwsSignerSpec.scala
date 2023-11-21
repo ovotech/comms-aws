@@ -36,6 +36,7 @@ import org.http4s.headers._
 import org.http4s.{HttpDate, MediaType, Request}
 import AwsSigner._
 import org.http4s.syntax.all._
+import org.typelevel.ci._
 
 class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
 
@@ -248,7 +249,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       ) { r =>
         IO(
           r.headers
-            .get("Authorization".ci)
+            .get(ci"Authorization")
             .get
             .value shouldBe expectedAuthorizationValue
         )
@@ -281,7 +282,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       ) { r =>
         IO(
           r.headers
-            .get("Authorization".ci)
+            .get(ci"Authorization")
             .get
             .value
         )
@@ -318,7 +319,7 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       ) { r =>
         IO(
           r.headers
-            .get("Authorization".ci)
+            .get(ci"Authorization")
             .get
             .value shouldBe expectedAuthorizationValue
         )
