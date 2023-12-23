@@ -25,6 +25,7 @@ import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.effect.{IO, Sync}
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.Method._
+import org.http4s.headers.Authorization
 import org.http4s.{HttpDate, Request, Uri}
 import org.http4s.syntax.all._
 import org.typelevel.ci.CIStringSyntax
@@ -81,7 +82,7 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] with Asyn
           (request, expectedSignature) = testCase
           res <- EitherT.right[String](withSignRequest(IO(request)) { signed =>
             val signature = signed.headers.get("Authorization".ci).get.map(_.value)
-            IO(signature.toList should contain(expectedSignature))
+            IO(signature.toList shouldBe List(expectedSignature))
           })
         } yield res).value.map {
           case Left(msg) => fail(msg)

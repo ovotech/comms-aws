@@ -59,8 +59,6 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] with AsyncIOSpec {
         .through(sha256)
         .fold(Vector.empty[Byte])(_ :+ _)
         .map(xs => encodeHex(xs.toArray))
-        .head
-        .compile
         .toList
         .head shouldBe expectedResult
 
