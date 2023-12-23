@@ -120,13 +120,13 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] with Asyn
     def parseRequest(requestText: String): F[Either[String, Request[F]]] = {
       val RequestRe = "(?s)(.+?)(\n\n(.+))?".r
       val RequestLineRe = "(GET|POST) (.+) HTTP/1.1".r
-      def headers(rows: List[String]): List[Header.ToRaw] =
+      def headers(rows: List[String]) =
         rows.map(_.split(":", 2).toList).collect {
           case "X-Amz-Date" :: v :: Nil =>
             Header.ToRaw.modelledHeadersToRaw(
               `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(parseTestCaseDate(v)))
             )
-          case k :: v :: Nil => Header.Raw(k.ci, v)
+          case k :: v :: Nil => Header.ToRaw.rawToRaw(Header.Raw(k.ci, v))
         }
       (requestText match {
         case RequestRe(requestSection, _, body) =>
