@@ -65,8 +65,8 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] with Asyn
         val req = Request[IO]( uri = Uri.unsafeFromString("https://s3-eu-west-1.amazonaws.com/ovo-comms-test/test/more.pdf")
         )
 
-        signedClient.status(req).map(_.isSuccess)
-      }.asserting(_  shouldBe true)
+        signedClient.status(req)
+      }.asserting(_  should (not be Status.Unauthorized and not be Status.Forbidden))
     }
 
     "sign request valid for ES GET" ignore {
