@@ -34,7 +34,7 @@ trait HttpCodecs {
     new HttpCodec[HttpDate] {
 
       private val dateTimeFormatter =
-        DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
+        DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmssX")
 
       override def parse(s: String): ParseResult[HttpDate] =
         Try(ZonedDateTime.parse(s, dateTimeFormatter)).toEither

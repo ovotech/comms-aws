@@ -132,17 +132,14 @@ object model {
         charset: Option[Charset] = None
     ): ObjectContent[F] =
       ObjectContent[F](
-        data = Stream.chunk(Chunk.bytes(data)).covary[F],
+        data = Stream.chunk(Chunk.from(data)).covary[F],
         contentLength = data.length.toLong,
         mediaType = mediaType,
         charset = charset,
         chunked = false
       )
 
-    def fromPath[F[_]: Sync: ContextShift](
-        path: Path,
-        blocker: Blocker
-    ): F[ObjectContent[F]] =
+    def fromPath[F[_]: Async](path: Path): F[ObjectContent[F]] =
       Sync[F]
         .delay(Files.size(path))
         .flatTap { contentLength =>
@@ -158,7 +155,6 @@ object model {
           ObjectContent(
             io.file.readAll[F](
               path,
-              blocker,
               ChunkSize
             ),
             contentLength,

@@ -25,7 +25,6 @@ import Credentials._
 import java.security.MessageDigest
 import java.time.{Instant, LocalDateTime, ZoneOffset}
 import java.time.temporal.ChronoUnit
-
 import cats.implicits._
 import cats.effect.IO
 import fs2._
@@ -33,11 +32,14 @@ import fs2.hash._
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.Method._
 import org.http4s.headers._
-import org.http4s.{HttpDate, MediaType, Request}
+import org.http4s.{Headers, HttpDate, MediaType, Request}
 import AwsSigner._
+import cats.effect.testing.scalatest.AsyncIOSpec
+import org.http4s.Header.Select.singleHeaders
 import org.http4s.syntax.all._
+import org.typelevel.ci.CIStringSyntax
 
-class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
+class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] with AsyncIOSpec {
 
   "digest" should {
     "calculate the correct digest" in forAll() { data: Array[Byte] =>
@@ -57,6 +59,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         .through(sha256)
         .fold(Vector.empty[Byte])(_ :+ _)
         .map(xs => encodeHex(xs.toArray))
+        .head
+        .compile
         .toList
         .head shouldBe expectedResult
 
@@ -66,9 +70,9 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
   "Request with no body" should {
     "not have empty body stream" in {
       (for {
-        req <- GET.apply(uri"https://example.com")
+        req <- IO(GET.apply(uri"https://example.com"))
         last <- req.body.compile.last
-      } yield last).futureValue shouldBe None
+      } yield last).asserting(_ shouldBe None)
     }
   }
 
@@ -92,15 +96,15 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
           val expectedXAmzDate = `X-Amz-Date`(HttpDate.unsafeFromInstant(now))
 
           withFixedRequest(
-            GET(uri"http://example.com")
-              .map(_.removeHeader(Date).removeHeader(`X-Amz-Date`)),
+            IO(GET(uri"http://example.com"))
+              .map(_.removeHeader[Date].removeHeader[`X-Amz-Date`]),
             now
           ) { r =>
             IO {
-              r.headers.get(Date) shouldBe None
-              r.headers.get(`X-Amz-Date`) shouldBe Some(expectedXAmzDate)
+              r.headers.get[Date] shouldBe None
+              r.headers.get[`X-Amz-Date`] shouldBe Some(expectedXAmzDate)
             }
-          }.futureValue
+          }
         }
       }
 
@@ -111,15 +115,14 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
             HttpDate.unsafeFromInstant(now.minus(5, ChronoUnit.MINUTES))
           )
           withFixedRequest(
-            GET(uri"http://example.com")
-              .map(_.removeHeader(Date).putHeaders(expectedXAmzDate)),
+            IO(Request[IO](uri = uri"http://example.com", headers = Headers(expectedXAmzDate))),
             now
           ) { r =>
             IO {
-              r.headers.get(Date) shouldBe None
-              r.headers.get(`X-Amz-Date`) shouldBe Some(expectedXAmzDate)
+              r.headers.get[Date] shouldBe None
+              r.headers.get[`X-Amz-Date`] shouldBe Some(expectedXAmzDate)
             }
-          }.futureValue
+          }
         }
       }
     }
@@ -130,29 +133,28 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         val expectedDate =
           Date(HttpDate.unsafeFromInstant(now.minus(5, ChronoUnit.MINUTES)))
         withFixedRequest(
-          GET(uri"http://example.com")
-            .map(_.removeHeader(`X-Amz-Date`).putHeaders(expectedDate)),
+          IO(GET(uri"http://example.com"))
+            .map(_.removeHeader[`X-Amz-Date`].putHeaders(expectedDate)),
           now
         ) { r =>
           IO {
-            r.headers.get(`X-Amz-Date`) shouldBe None
-            r.headers.get(Date) shouldBe Some(expectedDate)
+            r.headers.get[`X-Amz-Date`] shouldBe None
+            r.headers.get[Date] shouldBe Some(expectedDate)
           }
-        }.unsafeRunSync()
+        }
       }
-
     }
 
-    "Host header is defined" when {
+    "Host header is defined" should {
       "the uri is absolute" should {
         "not add Host header" in {
           val expectedHost = Host("foo", 5555)
           withFixedRequest(
-            GET(uri"http://example.com")
+            IO(GET(uri"http://example.com"))
               .map(_.putHeaders(expectedHost))
           ) { r =>
             IO {
-              r.headers.get(Host) shouldBe Some(expectedHost)
+              r.headers.get[Host] shouldBe Some(expectedHost)
             }
           }.unsafeRunSync()
         }
@@ -160,11 +162,10 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
 
       "the uri is relative" should {
         "fail the effect" in {
-          withFixedRequest(GET(uri"/foo/bar"))(_ => IO.unit).attempt
-            .unsafeRunSync() shouldBe a[Left[_, _]]
+          withFixedRequest(IO(GET(uri"/foo/bar")))(_ => IO.unit).attempt
+            .asserting(_ shouldBe a[Left[_, _]])
         }
       }
-
     }
 
     "Credentials contain the session token" should {
@@ -178,15 +179,13 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         )
         val expectedXAmzSecurityToken = `X-Amz-Security-Token`(sessionToken)
         withFixedRequest(
-          GET(uri"http://example.com"),
+          IO(GET(uri"http://example.com")),
           credentials = credentials
         ) { r =>
           IO {
-            r.headers.get(`X-Amz-Security-Token`) shouldBe Some(
-              expectedXAmzSecurityToken
-            )
+            r.headers.get[`X-Amz-Security-Token`] shouldBe Some(expectedXAmzSecurityToken)
           }
-        }.futureValue
+        }
       }
     }
 
@@ -196,13 +195,13 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         val credentials =
           Credentials(AccessKeyId("FOO"), SecretAccessKey("BAR"))
         withFixedRequest(
-          GET(uri"http://example.com"),
+          IO(GET(uri"http://example.com")),
           credentials = credentials
         ) { r =>
           IO {
-            r.headers.get(`X-Amz-Security-Token`) shouldBe None
+            r.headers.get[`X-Amz-Security-Token`] shouldBe None
           }
-        }.futureValue
+        }
       }
     }
   }
@@ -211,9 +210,8 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
     "Date header is not defined" when {
       "X-Amz-Date is not defined" should {
         "return a failed effect" in {
-          withSignRequest(GET(uri"http://example.com"))(_ => IO.unit).attempt.futureValue shouldBe a[
-            Left[_, _]
-          ]
+          withSignRequest(IO(GET(uri"http://example.com")))(_ => IO.unit).attempt
+            .asserting(_ shouldBe a[Left[_, _]])
         }
       }
     }
@@ -234,25 +232,28 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         .parse("20150830T123600Z", AwsSigner.dateTimeFormatter)
         .atZone(ZoneOffset.UTC)
 
-      val request = GET(
-        uri"/",
-        Host("example.amazonaws.com"),
-        `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
+      val request = Request[IO](
+        uri = uri"/",
+        headers = Headers(
+          Host("example.amazonaws.com"),
+          `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
+        )
       )
 
       withSignRequest(
-        request,
+        IO(request),
         credentials = credentials,
         region = Region.`us-east-1`,
         service = Service("service")
       ) { r =>
         IO(
           r.headers
-            .get("Authorization".ci)
+            .get(ci"Authorization")
             .get
-            .value shouldBe expectedAuthorizationValue
+            .head
+            .value
         )
-      }.futureValue
+      }.asserting(_ shouldBe expectedAuthorizationValue)
     }
 
     "sign a vanilla POST request correctly" in {
@@ -267,25 +268,29 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         .parse("20150830T123600Z", AwsSigner.dateTimeFormatter)
         .atZone(ZoneOffset.UTC)
 
-      val request = POST(
-        uri"/",
-        Host("example.amazonaws.com"),
-        `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
+      val request = Request[IO](
+        method = POST,
+        uri = uri"/",
+        headers = Headers(
+          Host("example.amazonaws.com"),
+          `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
+        )
       )
 
       withSignRequest(
-        request,
+        IO(request),
         credentials = credentials,
         region = Region.`us-east-1`,
         service = Service("service")
       ) { r =>
         IO(
           r.headers
-            .get("Authorization".ci)
+            .get(ci"Authorization")
             .get
+            .head
             .value
         )
-      }.futureValue shouldBe expectedAuthorizationValue
+      }.asserting(_ shouldBe expectedAuthorizationValue)
     }
 
     "sign a POST request with body" in {
@@ -300,15 +305,16 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
         .parse("20150830T123600Z", AwsSigner.dateTimeFormatter)
         .atZone(ZoneOffset.UTC)
 
-      val request = POST
-        .apply(
-          "Param1=value1",
-          uri"/",
-          Host("example.amazonaws.com"),
-          `Content-Type`(MediaType.application.`x-www-form-urlencoded`),
-          `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
-        )
-        .map(_.removeHeader(`Content-Length`))
+      val request = IO(
+        POST
+          .apply(
+            "Param1=value1",
+            uri"/",
+            Host("example.amazonaws.com"),
+            `Content-Type`(MediaType.application.`x-www-form-urlencoded`),
+            `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
+          )
+      ).map(_.removeHeader[`Content-Length`])
 
       withSignRequest(
         request,
@@ -318,11 +324,12 @@ class AwsSignerSpec extends UnitSpec with Http4sClientDsl[IO] {
       ) { r =>
         IO(
           r.headers
-            .get("Authorization".ci)
+            .get(ci"Authorization")
             .get
-            .value shouldBe expectedAuthorizationValue
+            .head
+            .value
         )
-      }.futureValue
+      }.asserting(_ shouldBe expectedAuthorizationValue)
     }
   }
 

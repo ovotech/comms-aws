@@ -3,23 +3,22 @@ package auth
 
 import common._
 import common.model._
-import cats.effect.{ContextShift, IO}
-
+import cats.effect.IO
+import cats.effect.testing.scalatest.AsyncIOSpec
 import org.http4s.client.Client
-import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.blaze.client.BlazeClientBuilder
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.Method._
 import org.http4s.headers._
-import org.http4s.{MediaType, Status, Uri}
+import org.http4s.{MediaType, Request, Status, Uri}
 import org.http4s.client.middleware.{RequestLogger, ResponseLogger}
+
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.global
-
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProviderChain
 
-class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
+class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] with AsyncIOSpec {
 
-  implicit val ctx: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global)
 
   // This is our UAT environment
   private val esEndpoint = ""
@@ -40,15 +39,12 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
-        for {
-          req <- GET(
-            Uri.unsafeFromString("https://s3-eu-west-1.amazonaws.com/ovo-comms-test/more.pdf")
-          )
-          status <- signedClient.status(req)
-        } yield {
-          status.isSuccess shouldBe true
-        }
-      }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds))
+        val req = Request[IO](
+          uri = Uri.unsafeFromString("https://s3-eu-west-1.amazonaws.com/ovo-comms-test/more.pdf")
+        )
+
+        signedClient.status(req).map(_.isSuccess)
+      }.asserting(_  shouldBe true)
     }
 
     "sign request valid for S3 with nested paths" in {
@@ -66,13 +62,11 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
 
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
-        for {
-          req <- GET(
-            Uri.unsafeFromString("https://s3-eu-west-1.amazonaws.com/ovo-comms-test/test/more.pdf")
-          )
-          status <- signedClient.status(req)
-        } yield status
-      }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
+        val req = Request[IO]( uri = Uri.unsafeFromString("https://s3-eu-west-1.amazonaws.com/ovo-comms-test/test/more.pdf")
+        )
+
+        signedClient.status(req).map(_.isSuccess)
+      }.asserting(_  shouldBe true)
     }
 
     "sign request valid for ES GET" ignore {
@@ -91,10 +85,9 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         val signedClient: Client[IO] = awsSigner(requestLogger(responseLogger(client)))
 
         for {
-          req <- GET(Uri.unsafeFromString(s"$esEndpoint/audit-2018-09/_doc/foo"))
-          status <- signedClient.status(req)
+          status <- signedClient.status(GET(Uri.unsafeFromString(s"$esEndpoint/audit-2018-09/_doc/foo")))
         } yield status
-      }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
+      }.asserting(_ should (not be Status.Unauthorized and not be Status.Forbidden))
     }
 
     "sign request valid for ES POST" ignore {
@@ -123,14 +116,13 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(
+          status <- signedClient.status(POST(
             body,
             Uri.unsafeFromString(s"$esEndpoint/audit-2018-09/_doc/_search"),
             `Content-Type`(MediaType.application.json)
-          )
-          status <- signedClient.status(req)
+          ))
         } yield status
-      }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
+      }.asserting(_ should (not be Status.Unauthorized and not be Status.Forbidden))
     }
 
     "sign request valid for ES POST with multiple indexes" ignore {
@@ -159,16 +151,15 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(
+          status <- signedClient.status(POST(
             body,
             Uri.unsafeFromString(
               s"$esEndpoint/audit-2018-09,audit-2018-10,audit-2018-11/_doc/_search?ignore_unavailable=true"
             ),
             `Content-Type`(MediaType.application.json)
-          )
-          status <- signedClient.status(req)
+          ))
         } yield status
-      }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
+      }.asserting(_ should (not be Status.Unauthorized and not be Status.Forbidden))
     }
 
     "sign request valid for ES POST with query" ignore {
@@ -197,16 +188,15 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(
+          status <- signedClient.status(POST(
             body,
             Uri.unsafeFromString(
               s"$esEndpoint/audit-2018-09/_doc/_search?ignore_unavailable=true"
             ),
             `Content-Type`(MediaType.application.json)
-          )
-          status <- signedClient.status(req)
+          ))
         } yield status
-      }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
+      }.asserting(_ should (not be Status.Unauthorized and not be Status.Forbidden))
     }
 
     "sign request valid for ES POST with query and multiple parameters" ignore {
@@ -235,16 +225,15 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(
+          status <- signedClient.status(POST(
             body,
             Uri.unsafeFromString(
               s"$esEndpoint/audit-2018-09/_doc/_search?ignore_unavailable=true&refresh=true"
             ),
             `Content-Type`(MediaType.application.json)
-          )
-          status <- signedClient.status(req)
+          ))
         } yield status
-      }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
+      }.asserting(_ should (not be Status.Unauthorized and not be Status.Forbidden))
     }
 
     "sign request valid for ES POST with query and multiple parameters with comas and stars" ignore {
@@ -273,16 +262,15 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(
+          status <- signedClient.status(POST(
             body,
             Uri.unsafeFromString(
               "/audit-2018-09/_doc/_search?ignore_unavailable=true&refresh=true&foo*=foo&bar,baz=baz"
             ),
             `Content-Type`(MediaType.application.json)
-          )
-          status <- signedClient.status(req)
+          ))
         } yield status
-      }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
+      }.asserting(_ should (not be Status.Unauthorized and not be Status.Forbidden))
     }
 
     "sign request valid for ES POST with star in path" ignore {
@@ -311,19 +299,18 @@ class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] {
         """
 
         for {
-          req <- POST(
+          status <- signedClient.status(POST(
             body,
             Uri.unsafeFromString(s"$esEndpoint/audit-*/_doc/_search"),
             `Content-Type`(MediaType.application.json)
-          )
-          status <- signedClient.status(req)
+          ))
         } yield status
-      }.futureValue(timeout(scaled(5.seconds)), interval(500.milliseconds)) should (not be Status.Unauthorized and not be Status.Forbidden)
+      }.asserting(_ should (not be Status.Unauthorized and not be Status.Forbidden))
     }
   }
 
   def withHttpClient[A](f: Client[IO] => IO[A]): IO[A] = {
-    BlazeClientBuilder[IO](global).resource
+    BlazeClientBuilder[IO].resource
       .use(f)
   }
 

@@ -21,13 +21,13 @@ import common._
 import headers._
 import model._
 import Credentials._
-
+import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.effect.{IO, Sync}
-
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.Method._
 import org.http4s.{HttpDate, Request, Uri}
 import org.http4s.syntax.all._
+import org.typelevel.ci.CIStringSyntax
 
 /*
   Validate AwsSigner with test cases from 'AWS Signature Version 4 Test Suite'
@@ -35,7 +35,7 @@ import org.http4s.syntax.all._
   Download the test cases zip file, extract in the project root dir and run tests.
  */
 
-class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
+class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] with AsyncIOSpec {
   import cats.data.EitherT
 
   val DateFormatter =
@@ -80,13 +80,13 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
           testCase <- EitherT(getTestCase[IO](testFile.getAbsolutePath))
           (request, expectedSignature) = testCase
           res <- EitherT.right[String](withSignRequest(IO(request)) { signed =>
-            val signature = signed.headers.get("Authorization".ci).get.value
-            IO(signature shouldBe expectedSignature)
+            val signature = signed.headers.get("Authorization".ci).get.map(_.value)
+            IO(signature.toList should contain(expectedSignature))
           })
         } yield res).value.map {
           case Left(msg) => fail(msg)
           case Right(a) => a
-        }.futureValue
+        }
       }
     }
   }
@@ -119,11 +119,13 @@ class AwsSignV4TestSuiteSpec extends UnitSpec with Http4sClientDsl[IO] {
     def parseRequest(requestText: String): F[Either[String, Request[F]]] = {
       val RequestRe = "(?s)(.+?)(\n\n(.+))?".r
       val RequestLineRe = "(GET|POST) (.+) HTTP/1.1".r
-      def headers(rows: List[String]) =
+      def headers(rows: List[String]): List[Header.ToRaw] =
         rows.map(_.split(":", 2).toList).collect {
           case "X-Amz-Date" :: v :: Nil =>
-            `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(parseTestCaseDate(v)))
-          case k :: v :: Nil => Header(k, v)
+            Header.ToRaw.modelledHeadersToRaw(
+              `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(parseTestCaseDate(v)))
+            )
+          case k :: v :: Nil => Header.Raw(k.ci, v)
         }
       (requestText match {
         case RequestRe(requestSection, _, body) =>

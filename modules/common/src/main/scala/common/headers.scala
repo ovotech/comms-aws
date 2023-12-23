@@ -20,27 +20,15 @@ package common
 import model.Credentials._
 
 import java.time._
-
-import org.http4s._
-import syntax.all._
-import Header.Raw
-import util.{CaseInsensitiveString, Writer}
-
+import org.http4s.{Header, _}
+import org.http4s.Header.Raw
 import cats.implicits._
+import org.typelevel.ci.{CIString, _}
 
 object headers extends HttpCodecs {
 
-  object `X-Amz-Date` extends HeaderKey.Singleton {
-    type HeaderT = `X-Amz-Date`
-
-    val name: CaseInsensitiveString = "X-Amz-Date".ci
-
-    def matchHeader(header: Header): Option[`X-Amz-Date`] = header match {
-      case h: `X-Amz-Date` => h.some
-      case Raw(n, _) if n == name =>
-        header.parsed.asInstanceOf[`X-Amz-Date`].some
-      case _ => None
-    }
+  object `X-Amz-Date` {
+    def name: CIString = ci"X-Amz-Date"
 
     def parse(s: String): ParseResult[`X-Amz-Date`] =
       HttpCodec[HttpDate].parse(s).map(`X-Amz-Date`.apply)
@@ -56,80 +44,87 @@ object headers extends HttpCodecs {
     def unsafeFromDateTime(dateTime: ZonedDateTime): `X-Amz-Date` = {
       `X-Amz-Date`(HttpDate.unsafeFromZonedDateTime(dateTime))
     }
+
+    def matchHeader(header: Any): Option[`X-Amz-Date`] = header match {
+      case h: `X-Amz-Date` => h.some
+      case Raw(n, v) if n == name => parse(v).toOption
+      case _ => None
+    }
+
+    implicit val dateInstance: Header[`X-Amz-Date`, Header.Single] = Header.createRendered(
+      `X-Amz-Date`.name,
+      _.date,
+      `X-Amz-Date`.parse
+    )
   }
 
-  final case class `X-Amz-Date`(date: HttpDate) extends Header.Parsed {
-    def key: `X-Amz-Date`.type = `X-Amz-Date`
+  final case class `X-Amz-Date`(date: HttpDate)
 
-    def renderValue(writer: Writer): writer.type = writer << date
-  }
+  object `X-Amz-Content-SHA256` extends {
+    val name: CIString = ci"X-Amz-Content-SHA256"
 
-  object `X-Amz-Content-SHA256` extends HeaderKey.Singleton {
-    type HeaderT = `X-Amz-Content-SHA256`
-
-    val name: CaseInsensitiveString = "X-Amz-Content-SHA256".ci
-
-    def matchHeader(header: Header): Option[`X-Amz-Content-SHA256`] =
+    def matchHeader(header: Any): Option[`X-Amz-Content-SHA256`] =
       header match {
         case h: `X-Amz-Content-SHA256` => h.some
-        case Raw(n, _) if n == name =>
-          header.parsed.asInstanceOf[`X-Amz-Content-SHA256`].some
+        case Raw(n, v) if n == name => parse(v).toOption
         case _ => None
       }
 
     def parse(s: String): ParseResult[`X-Amz-Content-SHA256`] =
       `X-Amz-Content-SHA256`(s).asRight
+
+    implicit val contentSha256Instance: Header[`X-Amz-Content-SHA256`, Header.Single] =
+      Header.createRendered(
+        `X-Amz-Content-SHA256`.name,
+        _.hashedContent,
+        `X-Amz-Content-SHA256`.parse
+      )
   }
 
-  final case class `X-Amz-Content-SHA256`(hashedContent: String) extends Header.Parsed {
-    def key: `X-Amz-Content-SHA256`.type = `X-Amz-Content-SHA256`
+  final case class `X-Amz-Content-SHA256`(hashedContent: String)
 
-    def renderValue(writer: Writer): writer.type = writer << hashedContent
-  }
+  object `X-Amz-Security-Token` {
+    val name: CIString = ci"X-Amz-Security-Token"
 
-  object `X-Amz-Security-Token` extends HeaderKey.Singleton {
-    type HeaderT = `X-Amz-Security-Token`
-
-    val name: CaseInsensitiveString = "X-Amz-Security-Token".ci
-
-    def matchHeader(header: Header): Option[`X-Amz-Security-Token`] =
+    def matchHeader(header: Any): Option[`X-Amz-Security-Token`] =
       header match {
         case h: `X-Amz-Security-Token` => h.some
-        case Raw(n, _) if n == name =>
-          header.parsed.asInstanceOf[`X-Amz-Security-Token`].some
+        case Raw(n, v) if n == name => parse(v).toOption
         case _ => None
       }
 
     def parse(s: String): ParseResult[`X-Amz-Security-Token`] =
       HttpCodec[SessionToken].parse(s).map(`X-Amz-Security-Token`.apply)
+
+    implicit val securityTokenInstance: Header[`X-Amz-Security-Token`, Header.Single] =
+      Header.createRendered(
+        `X-Amz-Security-Token`.name,
+        _.sessionToken,
+        `X-Amz-Security-Token`.parse
+      )
   }
 
-  final case class `X-Amz-Security-Token`(sessionToken: SessionToken) extends Header.Parsed {
-    def key: `X-Amz-Security-Token`.type = `X-Amz-Security-Token`
+  final case class `X-Amz-Security-Token`(sessionToken: SessionToken)
 
-    def renderValue(writer: Writer): writer.type = writer << sessionToken
-  }
+  object `X-Amz-Target` {
+    val name: CIString = ci"X-Amz-Target"
 
-  object `X-Amz-Target` extends HeaderKey.Singleton {
-    type HeaderT = `X-Amz-Target`
-
-    val name: CaseInsensitiveString = "X-Amz-Target".ci
-
-    def matchHeader(header: Header): Option[`X-Amz-Target`] =
+    def matchHeader(header: Any): Option[`X-Amz-Target`] =
       header match {
         case h: `X-Amz-Target` => h.some
-        case Raw(n, _) if n == name =>
-          header.parsed.asInstanceOf[`X-Amz-Target`].some
+        case Raw(n, v) if n == name => parse(v).toOption
         case _ => None
       }
 
     def parse(s: String): ParseResult[`X-Amz-Target`] =
       `X-Amz-Target`(s).asRight
+
+    implicit val targetInstance: Header[`X-Amz-Target`, Header.Single] = Header.createRendered(
+      `X-Amz-Target`.name,
+      _.target,
+      `X-Amz-Target`.parse
+    )
   }
 
-  final case class `X-Amz-Target`(target: String) extends Header.Parsed {
-    def key: `X-Amz-Target`.type = `X-Amz-Target`
-
-    def renderValue(writer: Writer): writer.type = writer << target
-  }
+  final case class `X-Amz-Target`(target: String)
 }

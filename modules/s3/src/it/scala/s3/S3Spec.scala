@@ -39,13 +39,6 @@ class S3Spec extends IntegrationSpec {
   implicit val patience: PatienceConfig =
     PatienceConfig(scaled(5.seconds), 500.millis)
 
-  val blockingEc = scala.concurrent.ExecutionContext
-    .fromExecutorService(Executors.newCachedThreadPool())
-  val blocker = Blocker.liftExecutionContext(blockingEc)
-  implicit val ctx: ContextShift[IO] =
-    IO.contextShift(scala.concurrent.ExecutionContext.global)
-  implicit val timer: Timer[IO] = IO.timer(blockingEc)
-
   "headObject" when {
 
     "the bucket exists" when {
@@ -224,7 +217,7 @@ class S3Spec extends IntegrationSpec {
           withS3 { s3 =>
             val contentIo: IO[ObjectContent[IO]] = moreSize.map { size =>
               ObjectContent(
-                readInputStream(morePdf, chunkSize = 64 * 1024, blocker),
+                readInputStream(morePdf, chunkSize = 64 * 1024),
                 size,
                 chunked = true
               )
@@ -246,7 +239,7 @@ class S3Spec extends IntegrationSpec {
           withS3 { s3 =>
             val contentIo: IO[ObjectContent[IO]] = moreSize.map { size =>
               ObjectContent(
-                readInputStream(morePdf, chunkSize = 64 * 1024, blocker),
+                readInputStream(morePdf, chunkSize = 64 * 1024),
                 size,
                 chunked = true
               )

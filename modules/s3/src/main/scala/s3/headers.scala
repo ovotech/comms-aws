@@ -18,13 +18,12 @@ package com.ovoenergy.comms.aws
 package s3
 
 import model._
-
 import org.http4s._
 import syntax.all._
 import Header.Raw
-import util.{CaseInsensitiveString, Writer}
-
+import util.Writer
 import cats.implicits._
+import org.typelevel.ci.CIString
 
 trait HttpCodecs {
 
@@ -49,16 +48,14 @@ object headers extends HttpCodecs {
 
   val `X-Amz-Meta-` = "x-amz-meta-"
 
-  object `X-Amz-Storage-Class` extends HeaderKey.Singleton {
-    type HeaderT = `X-Amz-Storage-Class`
+  object `X-Amz-Storage-Class` {
 
-    val name: CaseInsensitiveString = "X-Amz-Storage-Class".ci
+    val name: CIString = "X-Amz-Storage-Class".ci
 
-    def matchHeader(header: Header): Option[`X-Amz-Storage-Class`] =
+    def matchHeader(header: Any): Option[`X-Amz-Storage-Class`] =
       header match {
         case h: `X-Amz-Storage-Class` => h.some
-        case Raw(n, _) if n == name =>
-          header.parsed.asInstanceOf[`X-Amz-Storage-Class`].some
+        case Raw(n, v) if n == name => parse(v).toOption
         case _ => None
       }
 
@@ -67,10 +64,13 @@ object headers extends HttpCodecs {
 
   }
 
-  final case class `X-Amz-Storage-Class`(storageClass: StorageClass) extends Header.Parsed {
-    def key: `X-Amz-Storage-Class`.type = `X-Amz-Storage-Class`
+  final case class `X-Amz-Storage-Class`(storageClass: StorageClass)
 
-    def renderValue(writer: Writer): writer.type = writer << storageClass
-  }
+  implicit val storageClassInstance: Header[`X-Amz-Storage-Class`, Header.Single] =
+    Header.createRendered(
+      `X-Amz-Storage-Class`.name,
+      _.storageClass,
+      `X-Amz-Storage-Class`.parse
+    )
 
 }
