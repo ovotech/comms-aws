@@ -1,0 +1,19 @@
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+name: Scala Steward
+jobs:
+  scala-steward:
+    runs-on: ubuntu-latest
+    name: Launch Scala Steward
+    steps:
+      - name: Launch Scala Steward
+        uses: scala-steward-org/scala-steward-action@v2
+        with:
+          branches: master
+          author-name: kaluza-libraries
+          author-email: 123489691+kaluza-libraries@users.noreply.github.com
+          github-token: ${{ secrets.KALUZA_LIBRARIES_SCALA_STEWARD_TOKEN }}
+          other-args: "--add-labels"
