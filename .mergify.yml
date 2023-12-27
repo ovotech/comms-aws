@@ -1,60 +1,26 @@
 queue_rules:
   - name: default
-    conditions:
-      - 'check-success=ci/circleci: job_required_for_mergify'
+    merge_conditions:
+      - and: &base_merge_conditions
+        - 'check-success=ci/circleci: job_required_for_mergify'
+        - author=kaluza-libraries
 pull_request_rules:
-  - name: label ovo-scala-steward's pre-release version PRs
+  - name: Merge minor version PRs
     conditions:
-      - author=ovo-scala-steward
-      - 'body~=labels:.*semver-pre-release'
-    actions:
-      label:
-        add:
-          - ovo-scala-steward
-          - pre-release-update
-  - name: label ovo-scala-steward's minor version PRs
-    conditions:
-      - author=ovo-scala-steward
-      - 'body~=labels:.*semver-minor'
-    actions:
-      label:
-        add:
-          - ovo-scala-steward
-          - minor-update
-  - name: label ovo-scala-steward's patch version PRs
-    conditions:
-      - author=ovo-scala-steward
-      - 'body~=labels:.*semver-patch'
-    actions:
-      label:
-        add:
-          - ovo-scala-steward
-          - patch-update
-  - name: label ovo-scala-steward's major version PRs
-    conditions:
-      - author=ovo-scala-steward
-      - 'body~=labels:.*semver-major'
-    actions:
-      label:
-        add:
-          - ovo-scala-steward
-          - major-update
-  - name: automatically merge ovo-scala-steward's minor version PRs
-    conditions:
-      - author=ovo-scala-steward
-      - body~=labels:.*semver-minor
-      - 'check-success=ci/circleci: job_required_for_mergify'
+      - and: *base_merge_conditions
+      - and:
+        - body~=labels:.*semver-minor
     actions:
       review:
         type: APPROVE
       queue:
         name: default
       delete_head_branch: {}
-  - name: automatically merge ovo-scala-steward's patch version PRs
+  - name: Merge patch version PRs
     conditions:
-      - author=ovo-scala-steward
-      - body~=labels:.*semver-patch
-      - 'check-success=ci/circleci: job_required_for_mergify'
+      - and: *base_merge_conditions
+      - and:
+          - body~=labels:.*semver-patch
     actions:
       review:
         type: APPROVE

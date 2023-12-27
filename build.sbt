@@ -3,18 +3,31 @@ import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.tagsonly.TagsOnly._
 
 lazy val fs2Version = "3.9.3"
+
 lazy val catsEffectVersion = "3.5.2"
+
 lazy val scalatestVersion = "3.2.0"
+
 lazy val awsSdkVersion = "2.21.43"
+
 lazy val scalacheckVersion = "1.17.0"
+
 lazy val scalatestScalacheckVersion = "3.1.1.1"
+
 lazy val slf4jVersion = "1.7.32"
+
 lazy val log4jVersion = "2.22.0"
+
 lazy val http4sVersion = "0.23.24"
+
 lazy val http4sBlazeClientVersion = "0.23.15"
+
 lazy val scalaXmlVersion = "2.1.0"
+
 lazy val circeVersion = "0.12.2"
+
 lazy val scodecBitsVersion = "1.1.12"
+
 lazy val commonCodecVersion = "1.14"
 
 lazy val IntegrationTest = config("it") extend Test
