@@ -13,8 +13,6 @@ import org.http4s.headers._
 import org.http4s.{MediaType, Request, Status, Uri}
 import org.http4s.client.middleware.{RequestLogger, ResponseLogger}
 
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.global
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProviderChain
 
 class AwsSignerItSpec extends IntegrationSpec with Http4sClientDsl[IO] with AsyncIOSpec {

@@ -8,8 +8,6 @@ import fs2.io._
 
 import java.nio.charset.StandardCharsets.UTF_8
 import java.util.UUID
-import java.util.concurrent.Executors
-import scala.concurrent.duration._
 import common.model._
 import common.{CredentialsProvider, IntegrationSpec}
 import model._

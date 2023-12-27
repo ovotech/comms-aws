@@ -10,7 +10,8 @@ lazy val scalacheckVersion = "1.17.0"
 lazy val scalatestScalacheckVersion = "3.1.1.1"
 lazy val slf4jVersion = "1.7.32"
 lazy val log4jVersion = "2.22.0"
-lazy val http4sVersion = "0.23.15"
+lazy val http4sVersion = "0.23.24"
+lazy val http4sBlazeClientVersion = "0.23.15"
 lazy val scalaXmlVersion = "2.1.0"
 lazy val circeVersion = "0.12.2"
 lazy val scodecBitsVersion = "1.1.12"
@@ -110,7 +111,7 @@ lazy val root = (project in file("."))
           "org.scalatestplus" %% "scalacheck-1-14" % scalatestScalacheckVersion,
           "org.apache.logging.log4j" % "log4j-api" % log4jVersion,
           "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4jVersion,
-          "org.http4s" %% "http4s-blaze-client" % http4sVersion
+          "org.http4s" %% "http4s-blaze-client" % http4sBlazeClientVersion
         ).map(_ % s"$Test,$IntegrationTest"),
         scalafmtOnCompile := true
       )
@@ -167,7 +168,7 @@ lazy val s3 = (project in file("modules/s3"))
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-scala-xml" % "0.23.13",
       "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion,
-      "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
+      "org.http4s" %% "http4s-blaze-client" % http4sBlazeClientVersion % Optional,
       "software.amazon.awssdk" % "s3" % awsSdkVersion % s"$Test,$IntegrationTest"
     )
   )
