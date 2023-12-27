@@ -2,16 +2,17 @@ import sbtrelease.ExtraReleaseCommands
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.tagsonly.TagsOnly._
 
-lazy val fs2Version = "2.5.11"
-lazy val catsEffectVersion = "2.5.1"
+lazy val fs2Version = "3.9.3"
+lazy val catsEffectVersion = "3.5.2"
 lazy val scalatestVersion = "3.2.0"
 lazy val awsSdkVersion = "2.21.43"
 lazy val scalacheckVersion = "1.17.0"
 lazy val scalatestScalacheckVersion = "3.1.1.1"
 lazy val slf4jVersion = "1.7.32"
 lazy val log4jVersion = "2.22.0"
-lazy val http4sVersion = "0.21.34"
-lazy val scalaXmlVersion = "1.3.0"
+lazy val http4sVersion = "0.23.24"
+lazy val http4sBlazeClientVersion = "0.23.15"
+lazy val scalaXmlVersion = "2.1.0"
 lazy val circeVersion = "0.12.2"
 lazy val scodecBitsVersion = "1.1.12"
 lazy val commonCodecVersion = "1.14"
@@ -105,11 +106,12 @@ lazy val root = (project in file("."))
         ),
         libraryDependencies ++= Seq(
           "org.scalatest" %% "scalatest" % scalatestVersion,
+          "org.typelevel" %% "cats-effect-testing-scalatest" % "1.5.0",
           "org.scalacheck" %% "scalacheck" % scalacheckVersion,
           "org.scalatestplus" %% "scalacheck-1-14" % scalatestScalacheckVersion,
           "org.apache.logging.log4j" % "log4j-api" % log4jVersion,
           "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4jVersion,
-          "org.http4s" %% "http4s-blaze-client" % http4sVersion
+          "org.http4s" %% "http4s-blaze-client" % http4sBlazeClientVersion
         ).map(_ % s"$Test,$IntegrationTest"),
         scalafmtOnCompile := true
       )
@@ -164,9 +166,9 @@ lazy val s3 = (project in file("modules/s3"))
   .settings(automateHeaderSettings(IntegrationTest))
   .settings(
     libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-scala-xml" % http4sVersion,
+      "org.http4s" %% "http4s-scala-xml" % "0.23.13",
       "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion,
-      "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
+      "org.http4s" %% "http4s-blaze-client" % http4sBlazeClientVersion % Optional,
       "software.amazon.awssdk" % "s3" % awsSdkVersion % s"$Test,$IntegrationTest"
     )
   )

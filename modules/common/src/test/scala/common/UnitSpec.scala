@@ -19,10 +19,6 @@ package common
 
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 
-abstract class UnitSpec
-    extends AnyWordSpec
-    with Matchers
-    with ScalaCheckDrivenPropertyChecks
-    with IOFutures
+abstract class UnitSpec extends AsyncWordSpec with Matchers with ScalaCheckDrivenPropertyChecks

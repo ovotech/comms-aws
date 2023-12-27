@@ -19,28 +19,27 @@ package s3
 
 import cats.implicits._
 import cats.effect._
-import java.nio.ByteBuffer
 
-import org.http4s.syntax.all._
-import org.http4s.{Service => _, headers => _, _}
+import java.nio.ByteBuffer
+import org.http4s._
 import org.http4s.headers._
 import org.http4s.Method._
 import org.http4s.Header.Raw
 import org.http4s.client.Client
-import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.blaze.client.BlazeClientBuilder
 import org.http4s.client.dsl.Http4sClientDsl
-import scala.concurrent.ExecutionContext
+
 import scala.concurrent.duration._
-
 import scalaxml._
-import scala.xml.Elem
 
+import scala.xml.Elem
 import auth.AwsSigner
-import headers._
 import model._
 import common._
 import common.model._
 import fs2.text
+import com.ovoenergy.comms.aws.s3.headers._
+import org.typelevel.ci.CIStringSyntax
 
 trait S3[F[_]] {
 
@@ -59,18 +58,17 @@ trait S3[F[_]] {
 
 object S3 {
 
-  def resource[F[_]: ConcurrentEffect: Timer](
+  def resource[F[_]: Async](
       credentialsProvider: CredentialsProvider[F],
       region: Region,
-      endpoint: Option[Uri] = None,
-      ec: ExecutionContext = ExecutionContext.global
+      endpoint: Option[Uri] = None
   ): Resource[F, S3[F]] = {
-    BlazeClientBuilder[F](ec).resource.map(client =>
+    BlazeClientBuilder[F].resource.map(client =>
       S3.apply(client, credentialsProvider, region, endpoint)
     )
   }
 
-  def apply[F[_]: Sync: Timer](
+  def apply[F[_]: Async](
       client: Client[F],
       credentialsProvider: CredentialsProvider[F],
       region: Region,
@@ -80,6 +78,7 @@ object S3 {
 
     val signer = AwsSigner[F](credentialsProvider, region, Service.S3)
     val signedClient = signer(client)
+
     def baseEndpoint(bucket: Bucket) = endpoint.getOrElse {
       Uri.unsafeFromString(s"https://${bucket.name}.s3.${region.value}.amazonaws.com")
     }
@@ -93,7 +92,7 @@ object S3 {
         bucket: Bucket,
         key: Key
     ): Resource[F, Either[Error, Object[F]]] =
-      Resource.eval(GET(uri(bucket, key))).flatMap { req =>
+      Resource.eval(Sync[F].delay(GET(uri(bucket, key)))).flatMap { req =>
         signedClient.run(req).evalMap {
           case r if r.status.isSuccess =>
             parseObjectSummary(r).value.rethrow // TODO should lack of etag be an error here?
@@ -114,7 +113,7 @@ object S3 {
     ): F[Either[Error, ObjectSummary]] = {
 
       for {
-        request <- GET(uri(bucket, key))
+        request <- Sync[F].delay(GET(uri(bucket, key)))
         result <- withRetry(signedClient.run(request).use {
           case r if r.status.isSuccess =>
             r.as[ObjectSummary].map(_.asRight[Error])
@@ -140,14 +139,11 @@ object S3 {
         Sync[F]
           .fromEither(`Content-Length`.fromLong(content.contentLength))
           .map { contentLength =>
-            Headers
-              .of(
-                contentLength,
-                `Content-Type`(content.mediaType, content.charset)
-              )
-              .put(metadata.map {
-                case (k, v) => Raw(s"${`X-Amz-Meta-`}$k".ci, v)
-              }.toSeq: _*)
+            Headers(
+              contentLength,
+              `Content-Type`(content.mediaType, content.charset),
+              metadata.map { case (k, v) => Raw(ci"${`X-Amz-Meta-`}$k", v) }.toSeq
+            )
           }
 
       val extractContent: F[Array[Byte]] =
@@ -168,7 +164,8 @@ object S3 {
       for {
         hs <- initHeaders
         contentAsSingleChunk <- extractContent
-        request <- PUT(contentAsSingleChunk, uri(bucket, key), hs.toList: _*)
+        request = Request[F](method = PUT, uri = uri(bucket, key), headers = hs)
+          .withEntity(contentAsSingleChunk)
         result <- withRetry(signedClient.run(request).use {
           case r if r.status.isSuccess => r.as[ObjectPut].map(_.asRight[Error])
           case r if r.status.responseClass == Status.ServerError =>
@@ -233,7 +230,7 @@ object S3 {
             strict: Boolean
         ): DecodeResult[F, ObjectPut] = {
           msg.headers
-            .get(ETag)
+            .get[ETag]
             .map(t => ObjectPut(Etag(t.tag.tag)))
             // TODO InvalidMessageBodyFailure is not correct here as there is no body
             .fold[DecodeResult[F, ObjectPut]](
@@ -255,7 +252,7 @@ object S3 {
     ): DecodeResult[F, ObjectSummary] = {
 
       val eTag: DecodeResult[F, Etag] = response.headers
-        .get(ETag)
+        .get[ETag]
         .map(t => DecodeResult.successT[F, Etag](Etag(t.tag.tag)))
         .getOrElse(
           DecodeResult.failureT[F, Etag](
@@ -266,7 +263,7 @@ object S3 {
         )
 
       val mediaType: DecodeResult[F, MediaType] = response.headers
-        .get(`Content-Type`)
+        .get[`Content-Type`]
         .map(_.mediaType)
         .fold(
           DecodeResult.failureT[F, MediaType](
@@ -277,12 +274,12 @@ object S3 {
         )(DecodeResult.successT[F, MediaType])
 
       val charset: DecodeResult[F, Option[Charset]] = response.headers
-        .get(`Content-Type`)
+        .get[`Content-Type`]
         .flatMap(_.charset)
         .traverse(DecodeResult.successT[F, Charset])
 
       val contentLength = response.headers
-        .get(`Content-Length`)
+        .get[`Content-Length`]
         .map(_.length)
         .fold(
           DecodeResult.failureT[F, Long](
@@ -292,9 +289,9 @@ object S3 {
           )
         )(DecodeResult.successT[F, Long])
 
-      val metadata: Map[String, String] = response.headers.toList.collect {
-        case h if h.name.value.toLowerCase.startsWith(`X-Amz-Meta-`) =>
-          h.name.value.substring(`X-Amz-Meta-`.length) -> h.value
+      val metadata: Map[String, String] = response.headers.headers.collect {
+        case h if h.name.toString.toLowerCase.startsWith(`X-Amz-Meta-`) =>
+          h.name.toString.substring(`X-Amz-Meta-`.length) -> h.value
       }.toMap
 
       (eTag, mediaType, charset, contentLength).mapN { (eTag, mediaType, charset, contentLength) =>
@@ -310,8 +307,8 @@ object S3 {
 
   }
 
-  private def fOfBodyString[F[_]: Sync: Timer](r: Response[F]) = {
-    r.body.through(text.utf8Decode).compile.string
+  private def fOfBodyString[F[_]: Sync](r: Response[F]) = {
+    r.body.through(text.utf8.decode).compile.string
   }
 
   private case class RetriableServerError(bodyContent: String) extends Exception {
