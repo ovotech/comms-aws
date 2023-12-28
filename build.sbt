@@ -22,7 +22,7 @@ lazy val http4sVersion = "0.23.24"
 
 lazy val http4sBlazeClientVersion = "0.23.15"
 
-lazy val scalaXmlVersion = "2.1.0"
+lazy val scalaXmlVersion = "2.2.0"
 
 lazy val circeVersion = "0.12.2"
 
@@ -108,7 +108,7 @@ lazy val root = (project in file("."))
         scalaVersion := "2.13.9",
         crossScalaVersions += "2.12.17",
         resolvers ++= Seq(
-          publicArtifactory,
+          publicArtifactory
         ),
         libraryDependencies ++= Seq(
           "org.http4s" %% "http4s-core" % http4sVersion,
