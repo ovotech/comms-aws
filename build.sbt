@@ -28,7 +28,7 @@ lazy val circeVersion = "0.12.2"
 
 lazy val scodecBitsVersion = "1.1.12"
 
-lazy val commonCodecVersion = "1.14"
+lazy val commonCodecVersion = "1.16.0"
 
 lazy val IntegrationTest = config("it") extend Test
 
@@ -108,7 +108,7 @@ lazy val root = (project in file("."))
         scalaVersion := "2.13.9",
         crossScalaVersions += "2.12.17",
         resolvers ++= Seq(
-          publicArtifactory,
+          publicArtifactory
         ),
         libraryDependencies ++= Seq(
           "org.http4s" %% "http4s-core" % http4sVersion,
