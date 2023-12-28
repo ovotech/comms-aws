@@ -6,7 +6,7 @@ lazy val fs2Version = "3.9.3"
 
 lazy val catsEffectVersion = "3.5.2"
 
-lazy val scalatestVersion = "3.2.0"
+lazy val scalatestVersion = "3.2.17"
 
 lazy val awsSdkVersion = "2.21.43"
 
@@ -108,7 +108,7 @@ lazy val root = (project in file("."))
         scalaVersion := "2.13.9",
         crossScalaVersions += "2.12.17",
         resolvers ++= Seq(
-          publicArtifactory,
+          publicArtifactory
         ),
         libraryDependencies ++= Seq(
           "org.http4s" %% "http4s-core" % http4sVersion,
