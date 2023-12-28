@@ -16,7 +16,7 @@ lazy val scalatestScalacheckVersion = "3.1.1.1"
 
 lazy val slf4jVersion = "1.7.32"
 
-lazy val log4jVersion = "2.22.0"
+lazy val log4jVersion = "2.22.1"
 
 lazy val http4sVersion = "0.23.24"
 
@@ -108,7 +108,7 @@ lazy val root = (project in file("."))
         scalaVersion := "2.13.9",
         crossScalaVersions += "2.12.17",
         resolvers ++= Seq(
-          publicArtifactory,
+          publicArtifactory
         ),
         libraryDependencies ++= Seq(
           "org.http4s" %% "http4s-core" % http4sVersion,
