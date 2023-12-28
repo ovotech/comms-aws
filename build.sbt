@@ -6,7 +6,7 @@ lazy val fs2Version = "3.9.3"
 
 lazy val catsEffectVersion = "3.5.2"
 
-lazy val scalatestVersion = "3.2.0"
+lazy val scalatestVersion = "3.2.17"
 
 lazy val awsSdkVersion = "2.21.43"
 
@@ -14,15 +14,15 @@ lazy val scalacheckVersion = "1.17.0"
 
 lazy val scalatestScalacheckVersion = "3.1.1.1"
 
-lazy val slf4jVersion = "1.7.32"
+lazy val slf4jVersion = "1.7.36"
 
-lazy val log4jVersion = "2.22.0"
+lazy val log4jVersion = "2.22.1"
 
 lazy val http4sVersion = "0.23.24"
 
 lazy val http4sBlazeClientVersion = "0.23.15"
 
-lazy val scalaXmlVersion = "2.1.0"
+lazy val scalaXmlVersion = "2.2.0"
 
 lazy val circeVersion = "0.12.2"
 
@@ -105,10 +105,10 @@ lazy val root = (project in file("."))
             "scm:git:git@github.com:ovotech/comms-aws.git"
           )
         ),
-        scalaVersion := "2.13.9",
+        scalaVersion := "2.13.12",
         crossScalaVersions += "2.12.17",
         resolvers ++= Seq(
-          publicArtifactory,
+          publicArtifactory
         ),
         libraryDependencies ++= Seq(
           "org.http4s" %% "http4s-core" % http4sVersion,
