@@ -16,13 +16,13 @@ lazy val scalatestScalacheckVersion = "3.1.1.1"
 
 lazy val slf4jVersion = "1.7.36"
 
-lazy val log4jVersion = "2.22.0"
+lazy val log4jVersion = "2.22.1"
 
 lazy val http4sVersion = "0.23.24"
 
 lazy val http4sBlazeClientVersion = "0.23.15"
 
-lazy val scalaXmlVersion = "2.1.0"
+lazy val scalaXmlVersion = "2.2.0"
 
 lazy val circeVersion = "0.12.2"
 
@@ -105,7 +105,7 @@ lazy val root = (project in file("."))
             "scm:git:git@github.com:ovotech/comms-aws.git"
           )
         ),
-        scalaVersion := "2.13.9",
+        scalaVersion := "2.13.12",
         crossScalaVersions += "2.12.17",
         resolvers ++= Seq(
           publicArtifactory
