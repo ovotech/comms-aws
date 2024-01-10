@@ -11,6 +11,7 @@ import java.util.UUID
 import common.model._
 import common.{CredentialsProvider, IntegrationSpec}
 import model._
+import org.http4s.MediaType
 
 class S3Spec extends IntegrationSpec with AsyncIOSpec {
 
@@ -201,13 +202,14 @@ class S3Spec extends IntegrationSpec with AsyncIOSpec {
     "the bucket exists" when {
       "the key does not exist" should {
 
-        "upload the object content" in {
-          withS3 { s3 =>
+        "upload the object content with correct Content-Type" in {
+          val (putResult, getResult) = withS3 { s3 =>
             val contentIo: IO[ObjectContent[IO]] = moreSize.map { size =>
               ObjectContent(
                 readInputStream(morePdf, chunkSize = 64 * 1024),
                 size,
-                chunked = true
+                chunked = true,
+                mediaType = MediaType.application.pdf
               )
             }
 
@@ -215,9 +217,14 @@ class S3Spec extends IntegrationSpec with AsyncIOSpec {
               key <- randomKey
               content <- contentIo
               result <- s3.putObject(existingBucket, key, content)
-            } yield result
+              getResult <- IO(checkGetObject(existingBucket, key)(identity))
+            } yield (result, getResult)
 
-          }.unsafeRunSync() shouldBe a[Right[_, _]]
+          }.unsafeRunSync()
+
+          putResult shouldBe a[Right[_,_]]
+          getResult.map(_.summary.mediaType) shouldBe Right(MediaType.application.pdf)
+
         }
 
         "upload the object content with custom metadata" in {
