@@ -164,8 +164,7 @@ object S3 {
       for {
         hs <- initHeaders
         contentAsSingleChunk <- extractContent
-        request = Request[F](method = PUT, uri = uri(bucket, key), headers = hs)
-          .withEntity(contentAsSingleChunk)
+        request = PUT(contentAsSingleChunk, uri(bucket, key), hs)
         result <- withRetry(signedClient.run(request).use {
           case r if r.status.isSuccess => r.as[ObjectPut].map(_.asRight[Error])
           case r if r.status.responseClass == Status.ServerError =>
