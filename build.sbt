@@ -106,7 +106,7 @@ lazy val root = (project in file("."))
           )
         ),
         scalaVersion := "2.13.12",
-        crossScalaVersions += "2.12.18",
+        crossScalaVersions += "2.12.19",
         resolvers ++= Seq(
           publicArtifactory
         ),
