@@ -8,7 +8,7 @@ lazy val catsEffectVersion = "3.5.2"
 
 lazy val scalatestVersion = "3.2.18"
 
-lazy val awsSdkVersion = "2.24.13"
+lazy val awsSdkVersion = "2.25.4"
 
 lazy val scalacheckVersion = "1.17.0"
 
@@ -18,7 +18,7 @@ lazy val slf4jVersion = "1.7.36"
 
 lazy val log4jVersion = "2.23.0"
 
-lazy val http4sVersion = "0.23.25"
+lazy val http4sVersion = "0.23.26"
 
 lazy val http4sBlazeClientVersion = "0.23.16"
 
