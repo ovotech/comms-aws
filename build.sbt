@@ -10,7 +10,7 @@ lazy val scalatestVersion = "3.2.18"
 
 lazy val awsSdkVersion = "2.25.31"
 
-lazy val scalacheckVersion = "1.17.0"
+lazy val scalacheckVersion = "1.17.1"
 
 lazy val scalatestScalacheckVersion = "3.1.1.1"
 
