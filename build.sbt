@@ -22,7 +22,7 @@ lazy val http4sVersion = "0.23.26"
 
 lazy val http4sBlazeClientVersion = "0.23.16"
 
-lazy val scalaXmlVersion = "2.2.0"
+lazy val scalaXmlVersion = "2.3.0"
 
 lazy val circeVersion = "0.12.2"
 
