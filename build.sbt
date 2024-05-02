@@ -105,7 +105,7 @@ lazy val root = (project in file("."))
             "scm:git:git@github.com:ovotech/comms-aws.git"
           )
         ),
-        scalaVersion := "2.13.13",
+        scalaVersion := "2.13.14",
         crossScalaVersions += "2.12.19",
         resolvers ++= Seq(
           publicArtifactory
