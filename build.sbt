@@ -18,7 +18,7 @@ lazy val slf4jVersion = "1.7.36"
 
 lazy val log4jVersion = "2.24.0"
 
-lazy val http4sVersion = "0.23.27"
+lazy val http4sVersion = "0.23.28"
 
 lazy val http4sBlazeClientVersion = "0.23.16"
 
