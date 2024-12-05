@@ -8,7 +8,7 @@ lazy val catsEffectVersion = "3.5.2"
 
 lazy val scalatestVersion = "3.2.19"
 
-lazy val awsSdkVersion = "2.29.23"
+lazy val awsSdkVersion = "2.29.28"
 
 lazy val scalacheckVersion = "1.18.1"
 
@@ -119,7 +119,7 @@ lazy val root = (project in file("."))
         ),
         libraryDependencies ++= Seq(
           "org.scalatest" %% "scalatest" % scalatestVersion,
-          "org.typelevel" %% "cats-effect-testing-scalatest" % "1.5.0",
+          "org.typelevel" %% "cats-effect-testing-scalatest" % "1.6.0",
           "org.scalacheck" %% "scalacheck" % scalacheckVersion,
           "org.scalatestplus" %% "scalacheck-1-14" % scalatestScalacheckVersion,
           "org.apache.logging.log4j" % "log4j-api" % log4jVersion,
