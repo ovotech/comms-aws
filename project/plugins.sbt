@@ -5,6 +5,6 @@ addSbtPlugin("com.github.sbt" % "sbt-header" % "5.11.0")
 addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat" % "0.4.4")
 addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.10.0-RC1")
 addSbtPlugin("fr.qux" % "sbt-release-tags-only" % "0.5.0")
-addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.11.1")
+addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.5")
 
 resolvers += Resolver.sonatypeRepo("releases")
