@@ -179,7 +179,7 @@ lazy val s3 = (project in file("modules/s3"))
   .settings(automateHeaderSettings(IntegrationTest))
   .settings(
     libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-scala-xml" % "0.23.15",
+      "org.http4s" %% "http4s-scala-xml" % "0.24.0",
       "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion,
       "org.http4s" %% "http4s-blaze-client" % http4sBlazeClientVersion % Optional,
       "software.amazon.awssdk" % "s3" % awsSdkVersion % s"$Test,$IntegrationTest"
