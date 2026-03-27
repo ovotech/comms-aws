@@ -14,7 +14,7 @@ lazy val scalacheckVersion = "1.19.0"
 
 lazy val scalatestScalacheckVersion = "3.1.1.1"
 
-lazy val slf4jVersion = "1.7.36"
+lazy val slf4jVersion = "2.0.17"
 
 lazy val log4jVersion = "2.25.3"
 
