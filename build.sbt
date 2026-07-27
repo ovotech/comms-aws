@@ -20,7 +20,7 @@ lazy val log4jVersion = "2.26.1"
 
 lazy val http4sVersion = "0.23.36"
 
-lazy val http4sBlazeClientVersion = "0.23.17"
+lazy val http4sBlazeClientVersion = "0.23.18"
 
 lazy val scalaXmlVersion = "2.4.0"
 
