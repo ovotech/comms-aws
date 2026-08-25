@@ -1,0 +1,26 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: comms-aws
+  description: AWS Scala native implementation library for communications
+  annotations:
+    github.com/project-slug: ovotech/comms-aws
+spec:
+  owner: service-comms
+  domain: comms-build-and-deployment
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: comms-aws
+  description: AWS Scala native implementation library for communications
+  annotations:
+    github.com/project-slug: ovotech/comms-aws
+    backstage.io/source-location: url:https://github.com/ovotech/comms-aws/tree/main
+  tags: []
+spec:
+  type: library
+  lifecycle: production
+  owner: service-comms
+  system: comms-aws
