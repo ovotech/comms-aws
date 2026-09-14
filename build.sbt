@@ -8,7 +8,7 @@ lazy val catsEffectVersion = "3.5.2"
 
 lazy val scalatestVersion = "3.2.20"
 
-lazy val awsSdkVersion = "2.54.15"
+lazy val awsSdkVersion = "2.54.17"
 
 lazy val scalacheckVersion = "1.20.0"
 
