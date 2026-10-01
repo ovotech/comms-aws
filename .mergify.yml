@@ -2,20 +2,19 @@ queue_rules:
   - name: default
     merge_conditions:
       - and: &base_merge_conditions
-        - 'check-success=ci/circleci: job_required_for_mergify'
-        - author=kaluza-libraries
+          - 'check-success=ci/circleci: job_required_for_mergify'
+          - author=kaluza-libraries
 pull_request_rules:
   - name: Merge minor version PRs
     conditions:
       - and: *base_merge_conditions
       - and:
-        - body~=labels:.*semver-minor
+          - body~=labels:.*semver-minor
     actions:
       review:
         type: APPROVE
       queue:
         name: default
-      delete_head_branch: {}
   - name: Merge patch version PRs
     conditions:
       - and: *base_merge_conditions
@@ -26,4 +25,3 @@ pull_request_rules:
         type: APPROVE
       queue:
         name: default
-      delete_head_branch: {}
