@@ -28,7 +28,7 @@ lazy val circeVersion = "0.12.2"
 
 lazy val scodecBitsVersion = "1.1.12"
 
-lazy val commonCodecVersion = "1.22.1"
+lazy val commonCodecVersion = "1.23.0"
 
 lazy val IntegrationTest = config("it") extend Test
 
