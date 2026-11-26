@@ -15,7 +15,6 @@ pull_request_rules:
         type: APPROVE
       queue:
         name: default
-      delete_head_branch: {}
   - name: Merge patch version PRs
     conditions:
       - and: *base_merge_conditions
@@ -26,4 +25,3 @@ pull_request_rules:
         type: APPROVE
       queue:
         name: default
-      delete_head_branch: {}
